@@ -5,19 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Report extends Model
+class SosAlert extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'user_id',
-        'title',
-        'description',
-        'type',
-        'location',
-        'image',
-        'datetime',
-        'status',
         'latitude',
         'longitude',
+        'status',
     ];
 
     public function user()

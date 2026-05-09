@@ -3,6 +3,13 @@
 @section('header_title', 'All Incident Reports')
 
 @section('content')
+@push('styles')
+    <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+    <style>
+        #global-map { height: 400px; z-index: 10; border-radius: 0.75rem; }
+    </style>
+@endpush
+
 <div class="space-y-6">
     <!-- Filters and Search -->
     <div class="bg-white p-4 rounded-xl shadow-md border border-gray-100">
@@ -32,10 +39,32 @@
                 Filter
             </button>
             
-            @if(request()->has('search') || request()->has('type'))
+            <button type="button" onclick="findNearMe(event)" class="bg-green-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-700 transition flex items-center gap-2 shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
+                </svg>
+                Near Me (5km)
+            </button>
+            
+            @if(request()->has('search') || request()->has('type') || request()->has('lat'))
                 <a href="{{ route('reports.index') }}" class="text-sm text-gray-500 hover:text-indigo-600 font-medium underline">Clear filters</a>
             @endif
         </form>
+
+        @if(request()->has('lat'))
+            <div class="mt-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm flex items-center justify-between">
+                <span class="flex items-center gap-2 font-medium">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                    Showing incidents within 5km of your location.
+                </span>
+                <a href="{{ route('reports.index') }}" class="font-bold hover:underline">Clear</a>
+            </div>
+        @endif
+    </div>
+    <!-- Global Incidents Map -->
+    <div class="bg-white p-4 rounded-xl shadow-md border border-gray-100">
+        <h3 class="text-lg font-bold text-gray-800 mb-3">Incident Map View</h3>
+        <div id="global-map" class="w-full border border-gray-200"></div>
     </div>
 
     <!-- Reports Grid -->
@@ -81,7 +110,9 @@
                             </span>
                         </div>
 
-                        <h3 class="text-lg font-bold text-gray-800 line-clamp-1 mb-2">{{ $report->title }}</h3>
+                        <h3 class="text-lg font-bold text-gray-800 line-clamp-1 mb-2 hover:text-indigo-600 transition">
+                            <a href="{{ route('reports.show', $report) }}">{{ $report->title }}</a>
+                        </h3>
                         <p class="text-sm text-gray-600 line-clamp-3 mb-4">{{ $report->description }}</p>
 
                         <div class="mt-auto space-y-2 border-t pt-4">
@@ -97,8 +128,14 @@
                                 </svg>
                                 {{ \Carbon\Carbon::parse($report->datetime)->format('M d, Y - h:i A') }}
                             </div>
-                            <div class="flex items-center gap-2 text-xs text-gray-400">
-                                Reported by: <span class="font-bold text-gray-600">{{ $report->user->name }}</span>
+                            <div class="flex items-center justify-between gap-2 text-xs text-gray-400">
+                                <div>Reported by: <span class="font-bold text-gray-600">{{ $report->user->name }}</span></div>
+                                <a href="{{ route('reports.show', $report) }}" class="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-0.5 transition">
+                                    Details
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                    </svg>
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -111,4 +148,138 @@
         </div>
     @endif
 </div>
+
+@push('scripts')
+    <!-- Import MapLibre GL JS -->
+    <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+    <script>
+        function findNearMe(event) {
+            if (navigator.geolocation) {
+                var btn = event.currentTarget;
+                var originalText = btn.innerHTML;
+                btn.innerHTML = '<svg class="animate-spin h-5 w-5 text-white mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Locating...';
+                
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    var lat = position.coords.latitude;
+                    var lng = position.coords.longitude;
+                    var currentUrl = new URL(window.location.href);
+                    currentUrl.searchParams.set('lat', lat);
+                    currentUrl.searchParams.set('lng', lng);
+                    window.location.href = currentUrl.toString();
+                }, function(error) {
+                    alert("Could not get your location. Please make sure location services are enabled.");
+                    btn.innerHTML = originalText;
+                });
+            } else {
+                alert("Geolocation is not supported by your browser.");
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            // Get reports data from backend
+            var reports = @json($reports->items());
+
+            // Initialize MapLibre Map with Google Streets style using your MapTiler Key
+            var map = new maplibregl.Map({
+                container: 'global-map',
+                style: 'https://api.maptiler.com/maps/streets-v2/style.json?key=lRaklM4419f17ZLKAjhl', 
+                center: [-74.0060, 40.7128], // [Lng, Lat] default New York
+                zoom: 12,
+                pitch: 45, // Tilted 3D perspective by default
+                bearing: -17.6
+            });
+
+            // Add smooth navigation controls (zoom buttons)
+            map.addControl(new maplibregl.NavigationControl());
+
+            // Enable 3D Buildings on load when zooming in close
+            map.on('load', function () {
+                var layers = map.getStyle().layers;
+                var labelLayerId;
+                for (var i = 0; i < layers.length; i++) {
+                    if (layers[i].type === 'symbol' && layers[i].layout['text-field']) {
+                        labelLayerId = layers[i].id;
+                        break;
+                    }
+                }
+
+                map.addLayer({
+                    'id': '3d-buildings',
+                    'source': 'openmaptiles',
+                    'source-layer': 'building',
+                    'type': 'fill-extrusion',
+                    'minzoom': 14,
+                    'paint': {
+                        'fill-extrusion-color': '#e2e8f0',
+                        'fill-extrusion-height': [
+                            'interpolate', ['linear'], ['zoom'],
+                            14, 0,
+                            14.5, ['get', 'render_height']
+                        ],
+                        'fill-extrusion-base': [
+                            'interpolate', ['linear'], ['zoom'],
+                            14, 0,
+                            14.5, ['get', 'render_min_height']
+                        ],
+                        'fill-extrusion-opacity': 0.8
+                    }
+                }, labelLayerId);
+            });
+
+            var bounds = new maplibregl.LngLatBounds();
+            var hasCoords = false;
+
+            // Loop and add pins to map
+            reports.forEach(function(report) {
+                if (report.latitude && report.longitude) {
+                    var lat = parseFloat(report.latitude);
+                    var lng = parseFloat(report.longitude);
+                    
+                    var typeColors = {
+                        'crime': '#ef4444',      // Red
+                        'accident': '#f59e0b',   // Amber
+                        'suspicious': '#8b5cf6', // Purple
+                        'other': '#6b7280'       // Gray
+                    };
+                    var markerColor = typeColors[report.type] || '#6b7280';
+
+                    var showUrl = "{{ route('reports.show', ':id') }}".replace(':id', report.id);
+                    var popupContent = `
+                        <div class="p-1 min-w-[200px]">
+                            <div class="text-xs font-bold uppercase mb-1" style="color: ${markerColor}">${report.type}</div>
+                            <h4 class="font-bold text-gray-800 text-sm mb-1 hover:text-indigo-600 transition">
+                                <a href="${showUrl}">${report.title}</a>
+                            </h4>
+                            <p class="text-xs text-gray-600 mb-2">${report.description.substring(0, 80)}${report.description.length > 80 ? '...' : ''}</p>
+                            <a href="${showUrl}" class="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition">
+                                View Details
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                </svg>
+                            </a>
+                        </div>
+                    `;
+
+                    // Create interactive Popup
+                    var popup = new maplibregl.Popup({ offset: 25 }).setHTML(popupContent);
+
+                    // Add custom-colored 3D pin to map
+                    new maplibregl.Marker({ color: markerColor })
+                        .setLngLat([lng, lat]) // Note: Lng, Lat order
+                        .setPopup(popup)
+                        .addTo(map);
+
+                    bounds.extend([lng, lat]);
+                    hasCoords = true;
+                }
+            });
+
+            // Auto center map onto all reports
+            if (hasCoords) {
+                map.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+            }
+        });
+    </script>
+@endpush
+
 @endsection

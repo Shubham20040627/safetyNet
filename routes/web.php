@@ -4,6 +4,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\SosAlertController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -34,6 +35,14 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/reports/create', [ReportController::class, 'create'])->name('reports.create');
         Route::post('/reports', [ReportController::class, 'store'])->name('reports.store');
         Route::get('/my-reports', [ReportController::class, 'myReports'])->name('reports.my-reports');
+        Route::get('/reports/{report}', [ReportController::class, 'show'])->name('reports.show');
+
+        // Emergency SOS Alerts
+        Route::post('/sos', [SosAlertController::class, 'store'])->name('sos.store');
+        Route::get('/sos/active', [SosAlertController::class, 'active'])->name('sos.active');
+        Route::get('/sos/my-active', [SosAlertController::class, 'myActive'])->name('sos.my-active');
+        Route::post('/sos/{sosAlert}/acknowledge', [SosAlertController::class, 'acknowledge'])->name('sos.acknowledge');
+        Route::post('/sos/{sosAlert}/resolve', [SosAlertController::class, 'resolve'])->name('sos.resolve');
 
         // Admin Only Routes
         Route::middleware(['admin'])->prefix('admin')->name('admin.')->group(function () {

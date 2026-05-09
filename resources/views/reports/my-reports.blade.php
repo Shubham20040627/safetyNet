@@ -38,14 +38,17 @@
                         <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
                         <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
                         <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
-                        <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Status</th>
+                        <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Action</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @foreach($reports as $report)
                         <tr class="hover:bg-gray-50 transition">
                             <td class="px-6 py-4">
-                                <div class="font-bold text-gray-800">{{ $report->title }}</div>
+                                <div class="font-bold text-gray-800 hover:text-indigo-600 transition">
+                                    <a href="{{ route('reports.show', $report) }}">{{ $report->title }}</a>
+                                </div>
                                 <div class="text-xs text-gray-400 mt-1 line-clamp-1">{{ $report->description }}</div>
                             </td>
                             <td class="px-6 py-4">
@@ -59,11 +62,19 @@
                             </td>
                             <td class="px-6 py-4 text-sm text-gray-600">{{ $report->location }}</td>
                             <td class="px-6 py-4 text-sm text-gray-500">{{ \Carbon\Carbon::parse($report->datetime)->format('M d, Y') }}</td>
-                            <td class="px-6 py-4 text-right">
+                            <td class="px-6 py-4">
                                 <span class="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase 
                                     {{ $report->status == 'resolved' ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600' }}">
                                     {{ $report->status }}
                                 </span>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <a href="{{ route('reports.show', $report) }}" class="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition">
+                                    View
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                    </svg>
+                                </a>
                             </td>
                         </tr>
                     @endforeach

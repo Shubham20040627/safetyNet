@@ -15,6 +15,10 @@ class DashboardController extends Controller
         // Latest reports for the dashboard preview
         $latestReports = Report::with('user')->latest()->take(5)->get();
 
-        return view('dashboard', compact('totalReports', 'myReports', 'latestReports'));
+        // Analytics Data
+        $typeData = Report::selectRaw('type, COUNT(*) as count')->groupBy('type')->pluck('count', 'type')->toArray();
+        $statusData = Report::selectRaw('status, COUNT(*) as count')->groupBy('status')->pluck('count', 'status')->toArray();
+
+        return view('dashboard', compact('totalReports', 'myReports', 'latestReports', 'typeData', 'statusData'));
     }
 }
