@@ -19,7 +19,7 @@
     <body class="font-sans antialiased bg-white text-slate-900 selection:bg-slate-900 selection:text-white">
         
         <!-- Navbar -->
-        <header class="absolute w-full top-0 z-50">
+        <header class="absolute w-full top-0 z-50" x-data="{ open: false }">
             <div class="max-w-7xl mx-auto px-6 lg:px-8 h-24 flex items-center justify-between">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 bg-slate-900 text-white rounded-full flex items-center justify-center">
@@ -30,14 +30,51 @@
                     <span class="text-2xl font-bold tracking-tight text-slate-900">SafetyNet.</span>
                 </div>
 
-                <div class="flex items-center gap-6">
+                <!-- Desktop Menu -->
+                <div class="hidden md:flex items-center gap-6">
                     @if (Route::has('login'))
                         @auth
                             <a href="{{ url('/dashboard') }}" class="text-sm font-semibold text-slate-900 hover:text-indigo-600 transition-colors">Dashboard</a>
                         @else
-                            <a href="{{ route('login') }}" class="text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors hidden sm:block">Log in</a>
+                            <a href="{{ route('login') }}" class="text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors">Log in</a>
                             @if (Route::has('register'))
                                 <a href="{{ route('register') }}" class="text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 px-6 py-3 rounded-full transition-all shadow-md hover:shadow-xl">Get Started</a>
+                            @endif
+                        @endauth
+                    @endif
+                </div>
+
+                <!-- Mobile Menu Button -->
+                <div class="md:hidden flex items-center">
+                    <button @click="open = !open" class="text-slate-900 focus:outline-none">
+                        <svg x-show="!open" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                        <svg x-show="open" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" style="display: none;">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mobile Menu Overlay -->
+            <div x-show="open" 
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 -translate-y-4"
+                 x-transition:enter-end="opacity-100 translate-y-0"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100 translate-y-0"
+                 x-transition:leave-end="opacity-0 -translate-y-4"
+                 class="md:hidden bg-white border-b border-slate-100 absolute w-full z-40 shadow-xl" 
+                 style="display: none;">
+                <div class="px-6 py-8 space-y-6">
+                    @if (Route::has('login'))
+                        @auth
+                            <a href="{{ url('/dashboard') }}" class="block text-lg font-bold text-slate-900">Dashboard</a>
+                        @else
+                            <a href="{{ route('login') }}" class="block text-lg font-bold text-slate-900">Log in</a>
+                            @if (Route::has('register'))
+                                <a href="{{ route('register') }}" class="block w-full bg-slate-900 text-white text-center py-4 rounded-2xl font-bold">Get Started</a>
                             @endif
                         @endauth
                     @endif
@@ -75,7 +112,7 @@
                 
                 <!-- Right Image -->
                 <div class="w-full lg:w-[45%] lg:absolute lg:top-0 lg:right-0 lg:bottom-0 h-[60vh] lg:h-screen">
-                    <img src="https://images.unsplash.com/photo-1605276374104-dee2a0ed3cd6?q=80&w=2070&auto=format&fit=crop" 
+                    <img src="{{ asset('images/branding/hero_real.png') }}" 
                          alt="Peaceful Neighborhood" 
                          class="w-full h-full object-cover rounded-tl-[100px] lg:rounded-l-[100px] lg:rounded-tr-none shadow-2xl">
                 </div>

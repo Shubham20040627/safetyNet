@@ -182,7 +182,7 @@
             // Initialize MapLibre Map with Google Streets style using your MapTiler Key
             var map = new maplibregl.Map({
                 container: 'global-map',
-                style: 'https://api.maptiler.com/maps/streets-v2/style.json?key=lRaklM4419f17ZLKAjhl', 
+                style: 'https://api.maptiler.com/maps/streets-v2/style.json?key={{ config('services.maptiler.key') }}', 
                 center: [-74.0060, 40.7128], // [Lng, Lat] default New York
                 zoom: 12,
                 pitch: 45, // Tilted 3D perspective by default

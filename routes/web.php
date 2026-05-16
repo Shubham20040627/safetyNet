@@ -30,6 +30,9 @@ Route::middleware(['auth'])->group(function () {
         
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
+        // Public Announcements for All Users
+        Route::get('/announcements', [\App\Http\Controllers\AnnouncementController::class, 'publicIndex'])->name('announcements.list');
+
         // Incident Reports
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('/reports/create', [ReportController::class, 'create'])->name('reports.create');
@@ -53,6 +56,9 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/reports', [AdminController::class, 'reports'])->name('reports');
             Route::post('/reports/{report}/resolve', [AdminController::class, 'resolveReport'])->name('reports.resolve');
             Route::delete('/reports/{report}', [AdminController::class, 'deleteReport'])->name('reports.delete');
+            
+            // Announcements
+            Route::resource('announcements', \App\Http\Controllers\AnnouncementController::class)->except(['show', 'edit', 'update']);
         });
     });
 });

@@ -22,7 +22,7 @@
         <div class="min-h-screen flex">
             <!-- Left Side: Real Photography (Consistent with landing page) -->
             <div class="hidden lg:block lg:w-1/2 relative">
-                <img src="https://images.unsplash.com/photo-1605276374104-dee2a0ed3cd6?q=80&w=2070&auto=format&fit=crop" 
+                <img src="{{ asset('images/branding/auth_real.png') }}" 
                      alt="Peaceful Neighborhood" 
                      class="w-full h-full object-cover">
                 <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center p-12">

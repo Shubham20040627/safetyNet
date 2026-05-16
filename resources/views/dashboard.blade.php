@@ -26,6 +26,46 @@
     <div class="absolute -left-12 -bottom-12 w-44 h-44 bg-slate-700/10 rounded-full filter blur-xl"></div>
 </div>
 
+<!-- Safety Announcements Section -->
+@if(count($announcements) > 0)
+<div class="space-y-3 mb-6">
+    @foreach($announcements as $announcement)
+        <div class="relative flex items-start gap-4 p-5 rounded-2xl border shadow-sm overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500
+            {{ $announcement->type == 'critical' ? 'bg-red-50 border-red-200 text-red-900' : '' }}
+            {{ $announcement->type == 'warning' ? 'bg-amber-50 border-amber-200 text-amber-900' : '' }}
+            {{ $announcement->type == 'info' ? 'bg-indigo-50 border-indigo-200 text-indigo-900' : '' }}">
+            
+            <div class="mt-0.5">
+                @if($announcement->type == 'critical')
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-600 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                @elseif($announcement->type == 'warning')
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                @else
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                @endif
+            </div>
+            
+            <div class="flex-1">
+                <div class="flex justify-between items-start">
+                    <h4 class="font-black text-base font-serif-custom leading-tight">
+                        {{ $announcement->title }}
+                    </h4>
+                    <span class="text-[10px] font-bold opacity-60 uppercase tracking-widest">{{ $announcement->created_at->diffForHumans() }}</span>
+                </div>
+                <p class="mt-1.5 text-sm opacity-90 leading-relaxed font-medium">{{ $announcement->content }}</p>
+            </div>
+            
+            <!-- Tiny background accent shape -->
+            <div class="absolute -right-4 -bottom-4 opacity-10 transform rotate-12">
+                @if($announcement->type == 'critical')
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 text-red-900" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2z"/></svg>
+                @endif
+            </div>
+        </div>
+    @endforeach
+</div>
+@endif
+
 <div class="space-y-8">
     <!-- Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

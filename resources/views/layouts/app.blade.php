@@ -71,6 +71,12 @@
                         </svg>
                         Dashboard
                     </a>
+                    <a href="{{ route('announcements.list') }}" class="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 transition mb-2 {{ request()->routeIs('announcements.list') ? 'bg-slate-800 shadow-md font-bold' : 'text-slate-400 hover:text-white' }}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                        </svg>
+                        Notices
+                    </a>
                     <a href="{{ route('reports.index') }}" class="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 transition mb-2 {{ request()->routeIs('reports.index') ? 'bg-slate-800 shadow-md font-bold' : 'text-slate-400 hover:text-white' }}">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -104,6 +110,12 @@
                             </svg>
                             Manage Reports
                         </a>
+                        <a href="{{ route('admin.announcements.index') }}" class="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 transition mb-2 {{ request()->routeIs('admin.announcements.*') ? 'bg-slate-800 shadow-md font-bold' : 'text-slate-400 hover:text-white' }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                            </svg>
+                            Announcements
+                        </a>
                     @endif
                 </nav>
             </div>
@@ -127,6 +139,12 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a11 11 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                         </svg>
                         Dashboard
+                    </a>
+                    <a href="{{ route('announcements.list') }}" class="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 transition mb-2 {{ request()->routeIs('announcements.list') ? 'bg-slate-800 shadow-md font-bold' : 'text-slate-400 hover:text-white' }}">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                        </svg>
+                        Community Notices
                     </a>
                     
                     <a href="{{ route('reports.index') }}" class="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 transition mb-2 {{ request()->routeIs('reports.index') ? 'bg-slate-800 shadow-md font-bold' : 'text-slate-400 hover:text-white' }}">
@@ -165,6 +183,12 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                             </svg>
                             Manage Reports
+                        </a>
+                        <a href="{{ route('admin.announcements.index') }}" class="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 transition mb-2 {{ request()->routeIs('admin.announcements.*') ? 'bg-slate-800 shadow-md font-bold' : 'text-slate-400 hover:text-white' }}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                            </svg>
+                            Announcements
                         </a>
                     @endif
                 </nav>

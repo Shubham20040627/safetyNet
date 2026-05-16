@@ -178,7 +178,7 @@
 
                 var map = new maplibregl.Map({
                     container: 'incident-map',
-                    style: 'https://api.maptiler.com/maps/streets-v2/style.json?key=lRaklM4419f17ZLKAjhl', 
+                    style: 'https://api.maptiler.com/maps/streets-v2/style.json?key={{ config('services.maptiler.key') }}', 
                     center: [lng, lat],
                     zoom: 15,
                     pitch: 45,
