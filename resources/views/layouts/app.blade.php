@@ -600,7 +600,7 @@
                         }
                     })
                     .catch(err => console.error("SOS active check failed", err));
-            }, 3000);
+            }, 15000);
 
             // Acknowledge and dispatch help to neighbor's SOS
             function acknowledgeActiveEmergency() {
@@ -692,7 +692,7 @@
             }
 
             // Periodically poll own active SOS state from page load (if page is reloaded during alert)
-            setInterval(pollMySOSStatus, 3000);
+            setInterval(pollMySOSStatus, 15000);
 
             // Resolve own active SOS alert
             function resolveOwnSOS() {
