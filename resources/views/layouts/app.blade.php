@@ -297,7 +297,7 @@
                 </nav>
             </div>
 
-            <div :class="sidebarHovered ? 'md:pl-64' : 'md:pl-0'" class="flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out">
+            <div class="flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out">
                 <!-- Invisible Left Edge Activation Zone -->
                 <div @mouseenter="sidebarHovered = true" class="fixed top-0 left-0 h-screen w-3.5 z-45 hidden md:block"></div>
 
