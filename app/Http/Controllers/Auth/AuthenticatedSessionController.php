@@ -8,16 +8,19 @@ use App\Providers\RouteServiceProvider;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\View\View;
+use Illuminate\Support\Facades\Route;
 
 class AuthenticatedSessionController extends Controller
 {
     /**
      * Display the login view.
      */
-    public function create(): View
+    public function create(): \Inertia\Response
     {
-        return view('auth.login');
+        return \Inertia\Inertia::render('Auth/Login', [
+            'canResetPassword' => Route::has('password.request'),
+            'status' => session('status'),
+        ]);
     }
 
     /**
@@ -43,9 +46,11 @@ class AuthenticatedSessionController extends Controller
     /**
      * Display the super admin secret login view.
      */
-    public function createSuperAdmin(): View
+    public function createSuperAdmin(): \Inertia\Response
     {
-        return view('auth.superadmin');
+        return \Inertia\Inertia::render('Auth/SuperAdmin', [
+            'status' => session('status'),
+        ]);
     }
 
     /**

@@ -21,7 +21,7 @@ class AnnouncementController extends Controller
             ->latest()
             ->paginate(15);
 
-        return view('announcements.index', compact('announcements'));
+        return \Inertia\Inertia::render('Announcements/Index', compact('announcements'));
     }
 
     /**
@@ -37,7 +37,7 @@ class AnnouncementController extends Controller
             ->latest()
             ->paginate(10);
 
-        return view('admin.announcements.index', compact('announcements'));
+        return \Inertia\Inertia::render('Admin/Announcements/Index', compact('announcements'));
     }
 
     /**
@@ -45,7 +45,7 @@ class AnnouncementController extends Controller
      */
     public function create()
     {
-        return view('admin.announcements.create');
+        return \Inertia\Inertia::render('Admin/Announcements/Create');
     }
 
     /**

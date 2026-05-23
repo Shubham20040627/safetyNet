@@ -63,7 +63,7 @@ class ReportController extends Controller
 
         $reports = $query->paginate(10)->withQueryString();
 
-        return view('reports.index', compact('reports', 'neighborhoodLat', 'neighborhoodLng', 'neighborhoodBoundary', 'neighborhoodName'));
+        return \Inertia\Inertia::render('Reports/Index', compact('reports', 'neighborhoodLat', 'neighborhoodLng', 'neighborhoodBoundary', 'neighborhoodName'));
     }
 
     public function create()
@@ -79,7 +79,7 @@ class ReportController extends Controller
         $neighborhoodLng = $admin ? $admin->neighborhood_lng : -122.4194;
         $neighborhoodBoundary = $admin ? $admin->neighborhood_boundary : null;
 
-        return view('reports.create', compact('neighborhoodLat', 'neighborhoodLng', 'neighborhoodBoundary', 'neighborhoodName'));
+        return \Inertia\Inertia::render('Reports/Create', compact('neighborhoodLat', 'neighborhoodLng', 'neighborhoodBoundary', 'neighborhoodName'));
     }
 
     public function store(Request $request)
@@ -164,7 +164,7 @@ class ReportController extends Controller
     public function myReports()
     {
         $reports = auth()->user()->reports()->latest()->paginate(10);
-        return view('reports.my-reports', compact('reports'));
+        return \Inertia\Inertia::render('Reports/MyReports', compact('reports'));
     }
 
     public function assignments()
@@ -188,7 +188,7 @@ class ReportController extends Controller
             $reports = $user->assignedReports()->with('user')->latest()->paginate(10);
         }
 
-        return view('reports.assignments', compact('reports'));
+        return \Inertia\Inertia::render('Reports/Assignments', compact('reports'));
     }
 
     public function resolveAssigned(Report $report)
@@ -223,7 +223,7 @@ class ReportController extends Controller
     public function show(Report $report)
     {
         $report->load('user', 'responder');
-        return view('reports.show', compact('report'));
+        return \Inertia\Inertia::render('Reports/Show', compact('report'));
     }
 
     public function downloadPDF(Report $report)
@@ -259,6 +259,6 @@ class ReportController extends Controller
                 $q->where('neighborhood_name', $neighborhoodName);
             })->get();
 
-        return view('reports.heatmap', compact('reports', 'neighborhoodLat', 'neighborhoodLng', 'neighborhoodBoundary', 'neighborhoodName'));
+        return \Inertia\Inertia::render('Reports/Heatmap', compact('reports', 'neighborhoodLat', 'neighborhoodLng', 'neighborhoodBoundary', 'neighborhoodName'));
     }
 }

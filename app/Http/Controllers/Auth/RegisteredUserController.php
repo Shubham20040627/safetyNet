@@ -18,7 +18,7 @@ class RegisteredUserController extends Controller
     /**
      * Display the registration view.
      */
-    public function create(): View
+    public function create(): \Inertia\Response
     {
         // Get all admin neighborhoods (excluding Greenwood Valley Safety Corridor)
         $neighborhoods = User::where('role', 'admin')
@@ -28,7 +28,7 @@ class RegisteredUserController extends Controller
             ->filter()
             ->values();
 
-        return view('auth.register', compact('neighborhoods'));
+        return \Inertia\Inertia::render('Auth/Register', compact('neighborhoods'));
     }
 
     /**
@@ -64,9 +64,9 @@ class RegisteredUserController extends Controller
     /**
      * Display the admin registration view.
      */
-    public function createAdmin(): View
+    public function createAdmin(): \Inertia\Response
     {
-        return view('auth.admin-register');
+        return \Inertia\Inertia::render('Auth/AdminRegister');
     }
 
     /**

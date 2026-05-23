@@ -12,7 +12,8 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        // Automated background simulation disabled to let user manually control demo data via a button.
+        // $schedule->command('simulate:incidents')->everyMinute();
     }
 
     /**

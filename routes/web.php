@@ -14,8 +14,18 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
-    return view('welcome');
+    return \Inertia\Inertia::render('Welcome', [
+        'canLogin' => Route::has('login'),
+        'canRegister' => Route::has('register'),
+    ]);
 });
+
+Route::get('/language/{locale}', function ($locale) {
+    if (in_array($locale, ['en', 'hi'])) {
+        session()->put('locale', $locale);
+    }
+    return redirect()->back();
+})->name('language.switch');
 
 // Authenticated Routes
 Route::middleware(['auth'])->group(function () {
@@ -29,6 +39,7 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['approved'])->group(function () {
         
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/dashboard/live-stats', [DashboardController::class, 'liveStats'])->name('dashboard.live-stats');
 
         // Public Announcements for All Users
         Route::get('/announcements', [\App\Http\Controllers\AnnouncementController::class, 'publicIndex'])->name('announcements.list');
@@ -68,6 +79,11 @@ Route::middleware(['auth'])->group(function () {
             
             // Announcements
             Route::resource('announcements', \App\Http\Controllers\AnnouncementController::class)->except(['show', 'edit', 'update']);
+            
+            // Seed Demo Data
+            Route::post('/seed-demo-data', [AdminController::class, 'seedDemoData'])->name('seed-demo');
+            Route::post('/clear-demo-data', [AdminController::class, 'clearDemoData'])->name('clear-demo');
+            Route::post('/push-demo-incident', [AdminController::class, 'pushDemoIncident'])->name('push-demo-incident');
         });
 
         // Super Admin Only Routes

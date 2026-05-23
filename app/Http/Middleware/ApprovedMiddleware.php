@@ -20,7 +20,7 @@ class ApprovedMiddleware
         }
 
         if (auth()->check() && auth()->user()->status === 'pending') {
-            return response()->view('auth.pending');
+            return \Inertia\Inertia::render('Auth/Pending')->toResponse($request);
         }
 
         abort(403, 'Your account has been rejected or is not approved.');

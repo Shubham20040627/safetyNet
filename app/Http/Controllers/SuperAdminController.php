@@ -21,7 +21,7 @@ class SuperAdminController extends Controller
         // Get all neighborhood admins in chronological order
         $admins = User::where('role', 'admin')->latest()->get();
 
-        return view('superadmin.dashboard', compact(
+        return \Inertia\Inertia::render('SuperAdmin/Dashboard', compact(
             'totalAdmins',
             'approvedAdmins',
             'pendingRequests',

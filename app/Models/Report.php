@@ -22,6 +22,7 @@ class Report extends Model
         'status',
         'latitude',
         'longitude',
+        'is_simulated',
     ];
 
     public function user()
