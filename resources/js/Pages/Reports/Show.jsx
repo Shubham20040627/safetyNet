@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import AppLayout from '../../Layouts/AppLayout';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import dayjs from 'dayjs';
@@ -9,6 +9,19 @@ export default function Show({ report }) {
     const mapRef = useRef(null);
     const { post: postResolve } = useForm();
     const { post: postVolunteer } = useForm();
+    const [is3D, setIs3D] = useState(true);
+
+    const toggle3D = () => {
+        if (!mapRef.current) return;
+        const map = mapRef.current;
+        if (is3D) {
+            map.easeTo({ pitch: 0, bearing: 0, duration: 1000 });
+            setIs3D(false);
+        } else {
+            map.easeTo({ pitch: 55, bearing: -15, duration: 1000 });
+            setIs3D(true);
+        }
+    };
 
     const handleResolve = (e) => {
         e.preventDefault();
@@ -65,12 +78,51 @@ export default function Show({ report }) {
             style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${maptilerKey}`, 
             center: [lng, lat],
             zoom: 15,
-            pitch: 45,
-            bearing: -10
+            pitch: 55,
+            bearing: -15
         });
 
         mapRef.current = map;
         map.addControl(new window.maplibregl.NavigationControl());
+
+        const setupLayers = () => {
+            const style = map.getStyle();
+            if (!style || !style.layers) return;
+            
+            let labelLayerId;
+            for (let i = 0; i < style.layers.length; i++) {
+                if (style.layers[i].type === 'symbol' && style.layers[i].layout && style.layers[i].layout['text-field']) {
+                    labelLayerId = style.layers[i].id;
+                    break;
+                }
+            }
+
+            const currentStyle = style.name || '';
+            const sourceName = map.getSource('openmaptiles') ? 'openmaptiles' : (map.getSource('maptiler') ? 'maptiler' : null);
+            if (!map.getLayer('3d-buildings') && !currentStyle.toLowerCase().includes('hybrid') && sourceName) {
+                try {
+                    map.addLayer({
+                        'id': '3d-buildings',
+                        'source': sourceName,
+                        'source-layer': 'building',
+                        'type': 'fill-extrusion',
+                        'minzoom': 13,
+                        'paint': {
+                            'fill-extrusion-color': '#4f46e5',
+                            'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.5, ['get', 'render_height']],
+                            'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.5, ['get', 'render_min_height']],
+                            'fill-extrusion-opacity': 0.65
+                        }
+                    }, labelLayerId);
+                } catch (e) {
+                    console.warn("Could not load 3D buildings layer:", e);
+                }
+            }
+        };
+
+        map.on('style.load', setupLayers);
+
+        map.on('load', setupLayers);
 
         const typeColors = {
             'crime': '#ef4444',
@@ -277,7 +329,16 @@ export default function Show({ report }) {
                             
                             {report.latitude && report.longitude ? (
                                 <>
-                                    <div id="incident-map" ref={mapContainer} className="w-full border border-gray-200 mb-4"></div>
+                                    <div className="relative mb-4">
+                                        <div id="incident-map" ref={mapContainer} className="w-full border border-gray-200"></div>
+                                        <button
+                                            type="button"
+                                            onClick={toggle3D}
+                                            className="absolute bottom-4 right-4 z-20 px-3 py-1.5 bg-slate-950/80 hover:bg-slate-900 border border-slate-800 text-white text-xs font-bold rounded-lg shadow-lg flex items-center gap-1 transition"
+                                        >
+                                            {is3D ? '🗺️ 2D' : '🏙️ 3D View'}
+                                        </button>
+                                    </div>
                                     <div className="flex flex-col gap-3">
                                         <div className="text-xs text-gray-400 font-semibold space-y-1">
                                             <p>Latitude: <span className="text-gray-600 font-mono">{report.latitude}</span></p>

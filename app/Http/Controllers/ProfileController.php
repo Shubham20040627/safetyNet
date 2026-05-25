@@ -47,10 +47,18 @@ class ProfileController extends Controller
         ]);
 
         $user = $request->user();
+        $neighborhoodName = $user->neighborhood_name;
 
         Auth::logout();
 
         $user->delete();
+
+        if (!empty($neighborhoodName)) {
+            cache()->forget("dashboard_stats_{$neighborhoodName}");
+            cache()->forget("analytics_stats_{$neighborhoodName}");
+            cache()->forget("heatmap_reports_{$neighborhoodName}");
+            cache()->forget("global_chat_context");
+        }
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

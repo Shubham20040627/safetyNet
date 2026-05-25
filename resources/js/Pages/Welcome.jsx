@@ -345,6 +345,13 @@ export default function Welcome({ auth }) {
                 const rect = el.getBoundingClientRect();
                 const x = e.clientX - rect.left - rect.width / 2;
                 const y = e.clientY - rect.top - rect.height / 2;
+                
+                // Track relative position for glowing cursor tracking
+                const btnX = e.clientX - rect.left;
+                const btnY = e.clientY - rect.top;
+                el.style.setProperty('--btn-mouse-x', `${btnX}px`);
+                el.style.setProperty('--btn-mouse-y', `${btnY}px`);
+
                 el.style.transform = `translate3d(${x * 0.25}px, ${y * 0.25}px, 0) scale(1.04)`;
             };
             const handleMouseLeaveMagnetic = () => {
@@ -410,7 +417,29 @@ export default function Welcome({ auth }) {
                     z-index: 1000;
                     transition: width 0.1s ease-out;
                 }
-                .btn-magnetic { transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+                .btn-magnetic {
+                    position: relative;
+                    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                    overflow: hidden;
+                }
+                .btn-magnetic::before {
+                    content: '';
+                    position: absolute;
+                    inset: 0;
+                    border-radius: inherit;
+                    background: radial-gradient(
+                        80px circle at var(--btn-mouse-x, 0px) var(--btn-mouse-y, 0px),
+                        rgba(99, 102, 241, 0.18),
+                        transparent 80%
+                    );
+                    opacity: 0;
+                    transition: opacity 0.3s ease;
+                    pointer-events: none;
+                    z-index: 1;
+                }
+                .btn-magnetic:hover::before {
+                    opacity: 1;
+                }
                 .btn-magnetic:hover { transform: scale(1.05) translateY(-2px); }
                 .parallax-img {
                     transform: translateY(var(--parallax-offset, 0px));
@@ -471,21 +500,67 @@ export default function Welcome({ auth }) {
                 .font-serif-custom { font-family: 'Merriweather', serif; }
                 
                 /* Apple/Stripe-Style Scroll Reveal */
-                .reveal { opacity: 0; transform: translateY(30px) scale(0.98); transition: opacity 1.2s cubic-bezier(0.1, 0.9, 0.2, 1), transform 1.2s cubic-bezier(0.1, 0.9, 0.2, 1); }
-                .reveal-left { opacity: 0; transform: translateX(-30px); transition: opacity 1.2s cubic-bezier(0.1, 0.9, 0.2, 1), transform 1.2s cubic-bezier(0.1, 0.9, 0.2, 1); }
-                .reveal-right { opacity: 0; transform: translateX(30px); transition: opacity 1.2s cubic-bezier(0.1, 0.9, 0.2, 1), transform 1.2s cubic-bezier(0.1, 0.9, 0.2, 1); }
+                .reveal { opacity: 0; transform: translateY(30px) scale(0.98); transition: opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1), transform 0.85s cubic-bezier(0.16, 1, 0.3, 1); }
+                .reveal-left { opacity: 0; transform: translateX(-30px); transition: opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1), transform 0.85s cubic-bezier(0.16, 1, 0.3, 1); }
+                .reveal-right { opacity: 0; transform: translateX(30px); transition: opacity 0.85s cubic-bezier(0.16, 1, 0.3, 1), transform 0.85s cubic-bezier(0.16, 1, 0.3, 1); }
                 .revealed { opacity: 1; transform: translateY(0) translateX(0) scale(1); }
                 
-                /* Background glows */
+                /* Background glows with organic morphing bubbles */
+                @keyframes morph-blob-1 {
+                    0% {
+                        transform: translate(0px, 0px) scale(1) rotate(0deg);
+                        border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%;
+                    }
+                    33% {
+                        transform: translate(30px, -50px) scale(1.1) rotate(120deg);
+                        border-radius: 70% 30% 52% 48% / 60% 40% 60% 40%;
+                    }
+                    66% {
+                        transform: translate(-20px, 20px) scale(0.95) rotate(240deg);
+                        border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
+                    }
+                    100% {
+                        transform: translate(0px, 0px) scale(1) rotate(360deg);
+                        border-radius: 42% 58% 70% 30% / 45% 45% 55% 55%;
+                    }
+                }
+                @keyframes morph-blob-2 {
+                    0% {
+                        transform: translate(0px, 0px) scale(1) rotate(0deg);
+                        border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
+                    }
+                    50% {
+                        transform: translate(-45px, 50px) scale(1.12) rotate(-180deg);
+                        border-radius: 35% 65% 55% 45% / 55% 45% 55% 45%;
+                    }
+                    100% {
+                        transform: translate(0px, 0px) scale(1) rotate(-360deg);
+                        border-radius: 50% 50% 30% 70% / 50% 60% 40% 50%;
+                    }
+                }
                 .blob {
                     position: absolute; width: 500px; height: 500px;
                     background: linear-gradient(180deg, rgba(79, 70, 229, 0.08) 0%, rgba(147, 197, 253, 0.03) 100%);
                     filter: blur(90px); border-radius: 50%; z-index: -1; pointer-events: none;
-                    animation: float 25s infinite alternate ease-in-out;
+                    animation: morph-blob-1 25s infinite ease-in-out;
                 }
-                @keyframes float {
-                    0% { transform: translate(0, 0) scale(1); }
-                    100% { transform: translate(80px, 40px) scale(1.08); }
+                .hero-glass-card {
+                    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+                }
+                .hero-glass-card:hover {
+                    transform: scale(1.06) translateY(-4px) !important;
+                    background-color: rgba(255, 255, 255, 0.2) !important;
+                    border-color: rgba(99, 102, 241, 0.5) !important;
+                    box-shadow: 0 20px 40px -10px rgba(99, 102, 241, 0.35), 0 0 20px 2px rgba(99, 102, 241, 0.2) !important;
+                }
+                .hero-glass-card-dark {
+                    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+                }
+                .hero-glass-card-dark:hover {
+                    transform: scale(1.06) translateY(-4px) !important;
+                    background-color: rgba(15, 23, 42, 0.6) !important;
+                    border-color: rgba(99, 102, 241, 0.4) !important;
+                    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.55), 0 0 20px 2px rgba(99, 102, 241, 0.25) !important;
                 }
                 .btn-shimmer {
                     position: relative;
@@ -549,10 +624,10 @@ export default function Welcome({ auth }) {
             <div className="noise-overlay"></div>
             <div id="spotlight" ref={spotlightRef}></div>
 
-            <div className="blob top-[-100px] left-[-100px] opacity-60"></div>
-            <div className="blob top-[300px] right-[-100px] bg-indigo-200/20" style={{animationDelay: '-5s', width: '600px', height: '600px'}}></div>
-            <div className="blob bottom-[-200px] left-[-200px] bg-amber-100/30" style={{width: '800px', height: '800px', animationDelay: '-10s'}}></div>
-            <div className="blob middle-0 right-[10%] bg-purple-100/20" style={{width: '400px', height: '400px', animationDelay: '-15s'}}></div>
+            <div className="blob top-[-100px] left-[-100px] opacity-60" style={{ animationName: 'morph-blob-1' }}></div>
+            <div className="blob top-[300px] right-[-100px] bg-indigo-200/20" style={{animationDelay: '-5s', width: '600px', height: '600px', animationName: 'morph-blob-2'}}></div>
+            <div className="blob bottom-[-200px] left-[-200px] bg-amber-100/30" style={{width: '800px', height: '800px', animationDelay: '-10s', animationName: 'morph-blob-1'}}></div>
+            <div className="blob middle-0 right-[10%] bg-purple-100/20" style={{width: '400px', height: '400px', animationDelay: '-15s', animationName: 'morph-blob-2'}}></div>
 
             <div id="scroll-progress" ref={progressRef}></div>
 
@@ -598,7 +673,7 @@ export default function Welcome({ auth }) {
                             <Link href={route('dashboard')} className="text-sm font-semibold text-slate-900 hover:text-indigo-600 transition-colors">{translations.nav_dashboard || 'Dashboard'}</Link>
                         ) : (
                             <>
-                                <Link href={route('login')} className="text-sm font-semibold text-slate-600 hover:text-slate-900 hover:translate-x-1 transition-all">{translations.nav_login || 'Log in'}</Link>
+                                <Link href={route('login')} className="text-sm font-bold text-slate-900 hover:text-indigo-600 hover:bg-slate-100/80 px-5 py-2.5 rounded-full transition-all hover:scale-105 active:scale-95">{translations.nav_login || 'Log in'}</Link>
                                 <Link href={route('register')} className="text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 px-6 py-3 rounded-full transition-all shadow-md hover:shadow-xl btn-shimmer hover:scale-105 active:scale-95">{translations.nav_register || 'Get Started'}</Link>
                             </>
                         )}
@@ -683,7 +758,7 @@ export default function Welcome({ auth }) {
                     </div>
                     
                     <div className="w-full lg:w-[45%] lg:absolute lg:top-0 lg:right-0 lg:bottom-0 h-[60vh] lg:h-screen reveal-right overflow-hidden" style={{transitionDelay: '400ms'}}>
-                        <img src="/images/branding/hero_pro.png" 
+                        <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&q=80&w=1200" 
                              alt="Professional Safety Monitoring" 
                              className="w-full h-full object-cover rounded-tl-[100px] lg:rounded-l-[100px] lg:rounded-tr-none shadow-2xl parallax-move animate-float-medium" 
                              data-parallax-speed="40" />
@@ -692,7 +767,7 @@ export default function Welcome({ auth }) {
                         <div className="absolute inset-0 bg-gradient-to-tr from-slate-950/70 via-indigo-950/20 to-transparent rounded-tl-[100px] lg:rounded-l-[100px] lg:rounded-tr-none pointer-events-none parallax-move" data-parallax-speed="40"></div>
  
                         {/* Floating Glassmorphism Alert Card 1 */}
-                        <div className="absolute top-[16%] left-[8%] md:left-[15%] lg:left-[10%] bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 flex items-center gap-3.5 text-white shadow-[0_10px_30px_rgba(0,0,0,0.3)] animate-float-slow select-none parallax-move z-10" data-parallax-speed="10">
+                        <div className="absolute top-[16%] left-[8%] md:left-[15%] lg:left-[10%] bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 flex items-center gap-3.5 text-white shadow-[0_10px_30px_rgba(0,0,0,0.3)] animate-float-slow select-none parallax-move z-10 hero-glass-card cursor-pointer" data-parallax-speed="10">
                             <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center relative">
                                 <span className="absolute w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
                                 <span className="relative w-2.5 h-2.5 rounded-full bg-rose-500"></span>
@@ -704,7 +779,7 @@ export default function Welcome({ auth }) {
                         </div>
  
                         {/* Floating Glassmorphism Alert Card 2 */}
-                        <div className="absolute top-[48%] right-[8%] md:right-[15%] lg:right-[10%] bg-slate-950/30 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex items-center gap-3.5 text-white shadow-[0_10px_30px_rgba(0,0,0,0.3)] animate-float-medium select-none parallax-move z-10" data-parallax-speed="-14">
+                        <div className="absolute top-[48%] right-[8%] md:right-[15%] lg:right-[10%] bg-slate-950/30 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex items-center gap-3.5 text-white shadow-[0_10px_30px_rgba(0,0,0,0.3)] animate-float-medium select-none parallax-move z-10 hero-glass-card-dark cursor-pointer" data-parallax-speed="-14">
                             <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center relative">
                                 <span className="absolute w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span>
                                 <span className="relative w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
@@ -716,7 +791,7 @@ export default function Welcome({ auth }) {
                         </div>
  
                         {/* Floating Glassmorphism Alert Card 3 */}
-                        <div className="absolute bottom-[22%] left-[8%] md:left-[15%] lg:left-[12%] bg-slate-950/50 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex items-center gap-3.5 text-white shadow-[0_10px_30px_rgba(0,0,0,0.3)] animate-float-slow select-none parallax-move z-10" data-parallax-speed="8" style={{animationDelay: '-2.5s'}}>
+                        <div className="absolute bottom-[22%] left-[8%] md:left-[15%] lg:left-[12%] bg-slate-950/50 backdrop-blur-xl border border-white/10 rounded-2xl p-4 flex items-center gap-3.5 text-white shadow-[0_10px_30px_rgba(0,0,0,0.3)] animate-float-slow select-none parallax-move z-10 hero-glass-card-dark cursor-pointer" data-parallax-speed="8" style={{animationDelay: '-2.5s'}}>
                             <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center relative">
                                 <span className="absolute w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
                                 <span className="relative w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
@@ -850,7 +925,7 @@ export default function Welcome({ auth }) {
                             {/* Feature 1: Real-Time SOS */}
                             <div className="reveal-left tilt-card">
                                 <div className="relative rounded-3xl overflow-hidden shadow-2xl mb-8 aspect-[4/3] group bg-slate-950">
-                                    <img src="/images/branding/sos.png" alt="Real-Time SOS" className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-all duration-[3s]" />
+                                    <img src="https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=800" alt="Real-Time SOS" className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-all duration-[3s]" />
                                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-red-950/20 to-transparent"></div>
                                     <div className="absolute bottom-6 left-6 z-10">
                                         <span className="px-3 py-1 bg-red-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full">Immediate Action</span>
@@ -865,7 +940,7 @@ export default function Welcome({ auth }) {
                             {/* Feature 2: Interactive Heatmaps */}
                             <div className="reveal-right tilt-card">
                                 <div className="relative rounded-3xl overflow-hidden shadow-2xl mb-8 aspect-[4/3] group bg-slate-950">
-                                    <img src="/images/branding/hero_pro.png" alt="Security Heatmaps" className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-all duration-[3s]" />
+                                    <img src="https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?auto=format&fit=crop&q=80&w=800" alt="Security Heatmaps" className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-all duration-[3s]" />
                                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-indigo-950/20 to-transparent"></div>
                                     <div className="absolute bottom-6 left-6 z-10">
                                         <span className="px-3 py-1 bg-indigo-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full">Visual Data</span>
@@ -880,7 +955,7 @@ export default function Welcome({ auth }) {
                             {/* Feature 3: GPS Navigation */}
                             <div className="reveal-left tilt-card">
                                 <div className="relative rounded-3xl overflow-hidden shadow-2xl mb-8 aspect-[4/3] group bg-slate-950">
-                                    <img src="/images/branding/responder.png" alt="GPS Navigation" className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-all duration-[3s]" />
+                                    <img src="https://images.unsplash.com/photo-1506015391300-4802dc74de2e?auto=format&fit=crop&q=80&w=800" alt="GPS Navigation" className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-all duration-[3s]" />
                                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-emerald-950/20 to-transparent"></div>
                                     <div className="absolute bottom-6 left-6 z-10">
                                         <span className="px-3 py-1 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest rounded-full">Responder Tools</span>
@@ -895,7 +970,7 @@ export default function Welcome({ auth }) {
                             {/* Feature 4: Predictive Analytics */}
                             <div className="reveal-right tilt-card">
                                 <div className="relative rounded-3xl overflow-hidden shadow-2xl mb-8 aspect-[4/3] group bg-slate-950">
-                                    <img src="/images/branding/community.png" alt="Safety Analytics" className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-all duration-[3s]" />
+                                    <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=800" alt="Safety Analytics" className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-all duration-[3s]" />
                                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-900/20 to-transparent"></div>
                                     <div className="absolute bottom-6 left-6 z-10">
                                         <span className="px-3 py-1 bg-slate-700 text-white text-[10px] font-black uppercase tracking-widest rounded-full">Intelligence</span>
@@ -910,7 +985,7 @@ export default function Welcome({ auth }) {
                             {/* Feature 5: Professional Reporting */}
                             <div className="reveal-left tilt-card">
                                 <div className="relative rounded-3xl overflow-hidden shadow-2xl mb-8 aspect-[4/3] group bg-slate-950">
-                                    <img src="/images/branding/pdf_doc.png" alt="PDF Reports" className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-all duration-[3s]" />
+                                    <img src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&q=80&w=800" alt="PDF Reports" className="w-full h-full object-cover opacity-80 group-hover:scale-105 transition-all duration-[3s]" />
                                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-800/20 to-transparent"></div>
                                     <div className="absolute bottom-6 left-6 z-10">
                                         <span className="px-3 py-1 bg-slate-600 text-white text-[10px] font-black uppercase tracking-widest rounded-full">Legal Proof</span>

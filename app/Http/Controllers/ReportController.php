@@ -25,15 +25,10 @@ class ReportController extends Controller
                 $q->where('neighborhood_name', $neighborhoodName);
             });
 
-            // Fetch the Admin who registered this neighborhood to get coordinates and boundary
-            $admin = \App\Models\User::where('role', 'admin')
-                ->where('neighborhood_name', $neighborhoodName)
-                ->first();
-            if ($admin) {
-                $neighborhoodLat = $admin->neighborhood_lat;
-                $neighborhoodLng = $admin->neighborhood_lng;
-                $neighborhoodBoundary = $admin->neighborhood_boundary;
-            }
+            $meta = $this->getNeighborhoodMeta($neighborhoodName);
+            $neighborhoodLat = $meta['lat'];
+            $neighborhoodLng = $meta['lng'];
+            $neighborhoodBoundary = $meta['boundary'];
         }
 
         if ($request->has('lat') && $request->has('lng')) {
@@ -69,15 +64,11 @@ class ReportController extends Controller
     public function create()
     {
         $neighborhoodName = auth()->user()->neighborhood_name;
-        
-        // Find the admin user who registered this neighborhood to get coordinates and boundary
-        $admin = \App\Models\User::where('role', 'admin')
-            ->where('neighborhood_name', $neighborhoodName)
-            ->first();
+        $meta = $this->getNeighborhoodMeta($neighborhoodName);
 
-        $neighborhoodLat = $admin ? $admin->neighborhood_lat : 37.7749;
-        $neighborhoodLng = $admin ? $admin->neighborhood_lng : -122.4194;
-        $neighborhoodBoundary = $admin ? $admin->neighborhood_boundary : null;
+        $neighborhoodLat = $meta['lat'];
+        $neighborhoodLng = $meta['lng'];
+        $neighborhoodBoundary = $meta['boundary'];
 
         return \Inertia\Inertia::render('Reports/Create', compact('neighborhoodLat', 'neighborhoodLng', 'neighborhoodBoundary', 'neighborhoodName'));
     }
@@ -152,8 +143,11 @@ class ReportController extends Controller
 
         $report = Report::create($data);
 
-        // Clear dashboard cache to show fresh data instantly
-        cache()->forget("dashboard_stats_" . auth()->user()->neighborhood_name);
+        // Clear dashboard, analytics, and heatmap cache to show fresh data instantly
+        $neighborhoodName = auth()->user()->neighborhood_name;
+        cache()->forget("dashboard_stats_{$neighborhoodName}");
+        cache()->forget("analytics_stats_{$neighborhoodName}");
+        cache()->forget("heatmap_reports_{$neighborhoodName}");
 
         // Fire real-time notification
         event(new \App\Events\IncidentReported($report));
@@ -199,6 +193,12 @@ class ReportController extends Controller
         }
 
         $report->update(['status' => 'resolved']);
+
+        $neighborhoodName = $user->neighborhood_name;
+        cache()->forget("dashboard_stats_{$neighborhoodName}");
+        cache()->forget("analytics_stats_{$neighborhoodName}");
+        cache()->forget("heatmap_reports_{$neighborhoodName}");
+
         return back()->with('success', 'Incident marked as resolved.');
     }
 
@@ -216,6 +216,11 @@ class ReportController extends Controller
             'responder_id' => auth()->id(),
             'status' => 'investigating'
         ]);
+
+        $neighborhoodName = auth()->user()->neighborhood_name;
+        cache()->forget("dashboard_stats_{$neighborhoodName}");
+        cache()->forget("analytics_stats_{$neighborhoodName}");
+        cache()->forget("heatmap_reports_{$neighborhoodName}");
 
         return back()->with('success', 'You have successfully volunteered to respond to this incident!');
     }
@@ -242,23 +247,48 @@ class ReportController extends Controller
     public function heatmap()
     {
         $neighborhoodName = auth()->user()->neighborhood_name;
+        $meta = $this->getNeighborhoodMeta($neighborhoodName);
 
-        // Fetch the Admin who registered this neighborhood to get coordinates and boundary
-        $admin = \App\Models\User::where('role', 'admin')
-            ->where('neighborhood_name', $neighborhoodName)
-            ->first();
+        $neighborhoodLat = $meta['lat'];
+        $neighborhoodLng = $meta['lng'];
+        $neighborhoodBoundary = $meta['boundary'];
 
-        $neighborhoodLat = $admin ? $admin->neighborhood_lat : 37.7749;
-        $neighborhoodLng = $admin ? $admin->neighborhood_lng : -122.4194;
-        $neighborhoodBoundary = $admin ? $admin->neighborhood_boundary : null;
-
-        // Get all reports with coordinates within the user's neighborhood
-        $reports = Report::whereNotNull('latitude')
-            ->whereNotNull('longitude')
-            ->whereHas('user', function($q) use ($neighborhoodName) {
-                $q->where('neighborhood_name', $neighborhoodName);
-            })->get();
+        // Get all reports with coordinates within the user's neighborhood (cached)
+        $reportsCacheKey = "heatmap_reports_{$neighborhoodName}";
+        $reports = cache()->remember($reportsCacheKey, 300, function() use ($neighborhoodName) {
+            return Report::whereNotNull('latitude')
+                ->whereNotNull('longitude')
+                ->whereHas('user', function($q) use ($neighborhoodName) {
+                    $q->where('neighborhood_name', $neighborhoodName);
+                })->get();
+        });
 
         return \Inertia\Inertia::render('Reports/Heatmap', compact('reports', 'neighborhoodLat', 'neighborhoodLng', 'neighborhoodBoundary', 'neighborhoodName'));
+    }
+
+    /**
+     * Retrieve neighborhood coordinates and boundary map data from cache.
+     */
+    private function getNeighborhoodMeta($neighborhoodName)
+    {
+        if (empty($neighborhoodName)) {
+            return [
+                'lat' => 37.7749,
+                'lng' => -122.4194,
+                'boundary' => null
+            ];
+        }
+
+        return cache()->remember("neighborhood_meta_{$neighborhoodName}", 86400, function() use ($neighborhoodName) {
+            $admin = \App\Models\User::where('role', 'admin')
+                ->where('neighborhood_name', $neighborhoodName)
+                ->first();
+
+            return [
+                'lat' => $admin ? floatval($admin->neighborhood_lat) : 37.7749,
+                'lng' => $admin ? floatval($admin->neighborhood_lng) : -122.4194,
+                'boundary' => $admin ? $admin->neighborhood_boundary : null,
+            ];
+        });
     }
 }

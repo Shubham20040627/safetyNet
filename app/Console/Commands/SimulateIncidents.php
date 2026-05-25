@@ -190,14 +190,24 @@ class SimulateIncidents extends Command
         }
 
         // Auto-resolve some old pending simulated incidents (lifecycle simulation)
-        $this->autoResolveOldSimulations();
+        $changed = $this->autoResolveOldSimulations();
+
+        // Clear caches for all approved admins' neighborhoods to be 100% safe
+        if ($count > 0 || $changed) {
+            foreach ($admins as $admin) {
+                cache()->forget("dashboard_stats_{$admin->neighborhood_name}");
+                cache()->forget("analytics_stats_{$admin->neighborhood_name}");
+                cache()->forget("heatmap_reports_{$admin->neighborhood_name}");
+                cache()->forget("global_chat_context");
+            }
+        }
 
         $this->info("[Simulation] Done. Generated {$count} incident(s).");
         return self::SUCCESS;
     }
 
     /** Auto-resolve simulated incidents older than 15 minutes to keep data cycling */
-    private function autoResolveOldSimulations(): void
+    private function autoResolveOldSimulations(): bool
     {
         $resolved = Report::where('is_simulated', true)
             ->where('status', 'pending')
@@ -220,6 +230,8 @@ class SimulateIncidents extends Command
         if ($deleted > 0) {
             $this->info("[Simulation] Cleaned up {$deleted} old resolved simulation(s).");
         }
+
+        return ($resolved > 0 || $deleted > 0);
     }
 
     /** Generate a random lat/lng within the admin's neighborhood boundary */

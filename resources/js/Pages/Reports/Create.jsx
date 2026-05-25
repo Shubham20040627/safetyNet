@@ -19,6 +19,19 @@ export default function Create({ neighborhoodLat, neighborhoodLng, neighborhoodB
     const mapRef = useRef(null);
     const markerRef = useRef(null);
     const [fileName, setFileName] = useState('');
+    const [is3D, setIs3D] = useState(true);
+
+    const toggle3D = () => {
+        if (!mapRef.current) return;
+        const map = mapRef.current;
+        if (is3D) {
+            map.easeTo({ pitch: 0, bearing: 0, duration: 1000 });
+            setIs3D(false);
+        } else {
+            map.easeTo({ pitch: 55, bearing: -15, duration: 1000 });
+            setIs3D(true);
+        }
+    };
 
     useEffect(() => {
         const loadMapLibre = async () => {
@@ -67,8 +80,8 @@ export default function Create({ neighborhoodLat, neighborhoodLng, neighborhoodB
             style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${maptilerKey}`,
             center: [neighborhoodLng, neighborhoodLat],
             zoom: 14,
-            pitch: 45,
-            bearing: -17.6
+            pitch: 55,
+            bearing: -15
         });
 
         mapRef.current = map;
@@ -81,35 +94,45 @@ export default function Create({ neighborhoodLat, neighborhoodLng, neighborhoodB
         });
         map.addControl(geolocate);
 
-        map.on('load', () => {
+        const setupLayers = () => {
             const style = map.getStyle();
             let labelLayerId;
             if (style && style.layers) {
                 for (let i = 0; i < style.layers.length; i++) {
-                    if (style.layers[i].type === 'symbol' && style.layers[i].layout['text-field']) {
+                    if (style.layers[i].type === 'symbol' && style.layers[i].layout && style.layers[i].layout['text-field']) {
                         labelLayerId = style.layers[i].id;
                         break;
                     }
                 }
             }
 
-            if (!map.getLayer('3d-buildings')) {
+            const currentStyle = style?.name || '';
+            const sourceName = map.getSource('openmaptiles') ? 'openmaptiles' : (map.getSource('maptiler') ? 'maptiler' : null);
+            if (!map.getLayer('3d-buildings') && !currentStyle.toLowerCase().includes('hybrid') && sourceName) {
                 try {
                     map.addLayer({
                         'id': '3d-buildings',
-                        'source': 'openmaptiles',
+                        'source': sourceName,
                         'source-layer': 'building',
                         'type': 'fill-extrusion',
-                        'minzoom': 14,
+                        'minzoom': 13,
                         'paint': {
-                            'fill-extrusion-color': '#e2e8f0',
-                            'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.5, ['get', 'render_height']],
-                            'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.5, ['get', 'render_min_height']],
-                            'fill-extrusion-opacity': 0.8
+                            'fill-extrusion-color': '#4f46e5',
+                            'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.5, ['get', 'render_height']],
+                            'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.5, ['get', 'render_min_height']],
+                            'fill-extrusion-opacity': 0.65
                         }
                     }, labelLayerId);
-                } catch (e) {}
+                } catch (e) {
+                    console.warn("Could not load 3D buildings layer:", e);
+                }
             }
+        };
+
+        map.on('style.load', setupLayers);
+
+        map.on('load', () => {
+            setupLayers();
 
             if (boundaryJson && !map.getSource('neighborhood-boundary')) {
                 map.addSource('neighborhood-boundary', {
@@ -310,7 +333,16 @@ export default function Create({ neighborhoodLat, neighborhoodLng, neighborhoodB
                                     Click on the map to drop a pin and auto-fill coordinates
                                 </p>
 
-                                <div ref={mapContainer} id="map" className="w-full border border-slate-800/60 shadow-xl"></div>
+                                <div className="relative">
+                                    <div ref={mapContainer} id="map" className="w-full border border-slate-800/60 shadow-xl"></div>
+                                    <button
+                                        type="button"
+                                        onClick={toggle3D}
+                                        className="absolute bottom-4 right-4 z-20 px-3 py-1.5 bg-slate-950/80 hover:bg-slate-900 border border-slate-800 text-white text-xs font-bold rounded-lg shadow-lg flex items-center gap-1 transition"
+                                    >
+                                        {is3D ? '🗺️ 2D' : '🏙️ 3D View'}
+                                    </button>
+                                </div>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>

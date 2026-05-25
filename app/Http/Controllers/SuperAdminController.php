@@ -68,7 +68,17 @@ class SuperAdminController extends Controller
         }
 
         $adminName = $user->name;
+        $neighborhoodName = $user->neighborhood_name;
+
         $user->delete();
+
+        if (!empty($neighborhoodName)) {
+            cache()->forget("dashboard_stats_{$neighborhoodName}");
+            cache()->forget("analytics_stats_{$neighborhoodName}");
+            cache()->forget("heatmap_reports_{$neighborhoodName}");
+            cache()->forget("neighborhood_meta_{$neighborhoodName}");
+            cache()->forget("global_chat_context");
+        }
 
         return back()->with('success', "Neighborhood Admin account '{$adminName}' has been permanently deleted from the safety network.");
     }

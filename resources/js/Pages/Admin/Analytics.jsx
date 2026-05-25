@@ -3,31 +3,39 @@ import AppLayout from '../../Layouts/AppLayout';
 import { Head } from '@inertiajs/react';
 import Chart from 'chart.js/auto';
 
-// Simple animated counter component
-const AnimatedCounter = ({ value, duration = 1000 }) => {
+// Simple animated counter component with cubic ease-out curve
+const AnimatedCounter = ({ value, duration = 1200 }) => {
     const [count, setCount] = useState(0);
 
     useEffect(() => {
-        let start = 0;
         const end = parseInt(value, 10);
         if (isNaN(end) || end === 0) {
             setCount(0);
             return;
         }
-        
-        const totalMiliseconds = duration;
-        const incrementTime = Math.max(Math.floor(totalMiliseconds / end), 1);
-        
-        const timer = setInterval(() => {
-            start += 1;
-            setCount(start);
-            if (start >= end) {
-                clearInterval(timer);
+
+        let startTime = null;
+        let animationFrameId;
+
+        const animate = (timestamp) => {
+            if (!startTime) startTime = timestamp;
+            const progress = timestamp - startTime;
+            const percentage = Math.min(progress / duration, 1);
+            
+            // Ease-out cubic formula
+            const easeOutCubic = 1 - Math.pow(1 - percentage, 3);
+            
+            setCount(Math.floor(easeOutCubic * end));
+
+            if (percentage < 1) {
+                animationFrameId = requestAnimationFrame(animate);
+            } else {
                 setCount(end);
             }
-        }, incrementTime);
+        };
 
-        return () => clearInterval(timer);
+        animationFrameId = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(animationFrameId);
     }, [value, duration]);
 
     return <span>{count}</span>;
@@ -66,6 +74,26 @@ export default function Analytics({
         return `${formattedHour} ${ampm}`;
     };
     const peakTime = getFormattedPeakTime(peakHour);
+
+    // Compute Safety Index in main body for animated gauge dial
+    const criticalVal = priorityData.critical || 0;
+    const highVal = priorityData.high || 0;
+    const mediumVal = priorityData.medium || 0;
+    const resolvedVal = resolvedIncidents || 0;
+    
+    const safetyIndex = Math.max(0, Math.min(100, Math.round(
+        100 - ((15 * criticalVal + 10 * highVal + 5 * mediumVal) / (1 + resolvedVal))
+    )));
+
+    const responseVelocity = avgResolutionTime > 0 ? parseFloat((1 / avgResolutionTime).toFixed(2)) : 0;
+
+    const [gaugeOffset, setGaugeOffset] = useState(125.6);
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setGaugeOffset(125.6 - (125.6 * safetyIndex) / 100);
+        }, 150);
+        return () => clearTimeout(timer);
+    }, [safetyIndex]);
 
     // Advice text
     let advice = "";
@@ -316,6 +344,20 @@ export default function Analytics({
                     background: rgba(15, 23, 42, 0.65);
                     backdrop-filter: blur(16px);
                     border: 1px solid rgba(30, 41, 59, 0.8);
+                    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                }
+                .glass-card:hover {
+                    transform: translateY(-2px);
+                    border-color: rgba(99, 102, 241, 0.4);
+                    box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.6), 0 0 20px -2px rgba(99, 102, 241, 0.1);
+                }
+                @keyframes fade-up-slide {
+                    0% { opacity: 0; transform: translateY(12px); }
+                    100% { opacity: 1; transform: translateY(0); }
+                }
+                .staggered-card {
+                    opacity: 0;
+                    animation: fade-up-slide 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
                 }
                 `}
             </style>
@@ -337,88 +379,71 @@ export default function Analytics({
                 </div>
 
                 {/* Mathematical Analytics Spotlight: Safety Index & Response Velocity */}
-                {(() => {
-                    const criticalVal = priorityData.critical || 0;
-                    const highVal = priorityData.high || 0;
-                    const mediumVal = priorityData.medium || 0;
-                    const resolvedVal = resolvedIncidents || 0;
-                    
-                    const safetyIndex = Math.max(0, Math.min(100, Math.round(
-                        100 - ((15 * criticalVal + 10 * highVal + 5 * mediumVal) / (1 + resolvedVal))
-                    )));
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Speedometer Gauge Dial Card */}
+                    <div className="glass-card p-6 rounded-2xl shadow-lg border border-slate-800/80 flex flex-col items-center justify-between text-center relative overflow-hidden group staggered-card" style={{ animationDelay: '0ms' }}>
+                        <div className="absolute top-0 right-0 p-3 text-[10px] font-black text-indigo-500/40 uppercase tracking-widest">Index Dial</div>
+                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest self-start">Neighborhood Safety Index</h4>
+                        <div className="my-6 relative w-full flex items-center justify-center">
+                            <svg viewBox="0 0 100 55" className="w-full max-w-[200px] drop-shadow-[0_0_15px_rgba(99,102,241,0.15)]">
+                              <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#1e293b" strokeWidth="8" strokeLinecap="round" />
+                              <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="url(#gaugeGradient)" strokeWidth="8" strokeLinecap="round" strokeDasharray="125.6" strokeDashoffset={gaugeOffset} className="transition-all duration-1000 ease-out" />
+                              <defs>
+                                <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                  <stop offset="0%" stopColor="#ef4444" />
+                                  <stop offset="50%" stopColor="#f59e0b" />
+                                  <stop offset="100%" stopColor="#10b981" />
+                                </linearGradient>
+                              </defs>
+                              <text x="50" y="45" textAnchor="middle" className="fill-white text-lg font-black font-serif-custom">{safetyIndex}%</text>
+                            </svg>
+                        </div>
+                        <div className="text-xs text-slate-400 leading-relaxed font-semibold">
+                            Status: <span className={`font-black ${safetyIndex >= 80 ? 'text-emerald-400' : safetyIndex >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                                {safetyIndex >= 80 ? 'SECURE SECTOR' : safetyIndex >= 50 ? 'ELEVATED RISK' : 'CRITICAL THREAT LEVEL'}
+                            </span>
+                        </div>
+                    </div>
 
-                    const responseVelocity = avgResolutionTime > 0
-                        ? (resolvedVal / Math.max(1, avgResolutionTime)).toFixed(2)
-                        : "0.00";
-
-                    return (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {/* Speedometer Gauge Dial Card */}
-                            <div className="glass-card p-6 rounded-2xl shadow-lg border border-slate-800/80 flex flex-col items-center justify-between text-center relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-3 text-[10px] font-black text-indigo-500/40 uppercase tracking-widest">Index Dial</div>
-                                <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest self-start">Neighborhood Safety Index</h4>
-                                <div className="my-6 relative w-full flex items-center justify-center">
-                                    <svg viewBox="0 0 100 55" className="w-full max-w-[200px] drop-shadow-[0_0_15px_rgba(99,102,241,0.15)]">
-                                      <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#1e293b" strokeWidth="8" strokeLinecap="round" />
-                                      <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="url(#gaugeGradient)" strokeWidth="8" strokeLinecap="round" strokeDasharray="125.6" strokeDashoffset={125.6 - (125.6 * safetyIndex) / 100} className="transition-all duration-1000 ease-out" />
-                                      <defs>
-                                        <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                          <stop offset="0%" stopColor="#ef4444" />
-                                          <stop offset="50%" stopColor="#f59e0b" />
-                                          <stop offset="100%" stopColor="#10b981" />
-                                        </linearGradient>
-                                      </defs>
-                                      <text x="50" y="45" textAnchor="middle" className="fill-white text-lg font-black font-serif-custom">{safetyIndex}%</text>
-                                    </svg>
-                                </div>
-                                <div className="text-xs text-slate-400 leading-relaxed font-semibold">
-                                    Status: <span className={`font-black ${safetyIndex >= 80 ? 'text-emerald-400' : safetyIndex >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
-                                        {safetyIndex >= 80 ? 'SECURE SECTOR' : safetyIndex >= 50 ? 'ELEVATED RISK' : 'CRITICAL THREAT LEVEL'}
-                                    </span>
-                                </div>
+                    {/* Response Speed Efficiency Card */}
+                    <div className="glass-card p-6 rounded-2xl shadow-lg border border-slate-800/80 flex flex-col justify-between relative overflow-hidden group staggered-card" style={{ animationDelay: '100ms' }}>
+                        <div className="absolute top-0 right-0 p-3 text-[10px] font-black text-indigo-500/40 uppercase tracking-widest">Velocity Rate</div>
+                        <div>
+                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Dispatch Resolution Velocity</h4>
+                            <div className="mt-5 flex items-baseline gap-2">
+                                <span className="text-5xl font-black text-white font-serif-custom tracking-tight">{responseVelocity}</span>
+                                <span className="text-xs font-bold text-slate-400">cases / hr</span>
                             </div>
+                            <p className="text-xs text-slate-400 mt-3 leading-relaxed">
+                                Measures completed community reports against average operations turnaround duration. Higher is better.
+                            </p>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                            <span>Scale Target: &gt; 0.50</span>
+                            <span className={responseVelocity >= 0.5 ? "text-emerald-400" : "text-amber-400"}>
+                                {responseVelocity >= 0.5 ? "Optimal" : "Sub-Optimal"}
+                            </span>
+                        </div>
+                    </div>
 
-                            {/* Response Speed Efficiency Card */}
-                            <div className="glass-card p-6 rounded-2xl shadow-lg border border-slate-800/80 flex flex-col justify-between relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-3 text-[10px] font-black text-indigo-500/40 uppercase tracking-widest">Velocity Rate</div>
-                                <div>
-                                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Dispatch Resolution Velocity</h4>
-                                    <div className="mt-5 flex items-baseline gap-2">
-                                        <span className="text-5xl font-black text-white font-serif-custom tracking-tight">{responseVelocity}</span>
-                                        <span className="text-xs font-bold text-slate-400">cases / hr</span>
-                                    </div>
-                                    <p className="text-xs text-slate-400 mt-3 leading-relaxed">
-                                        Measures completed community reports against average operations turnaround duration. Higher is better.
-                                    </p>
-                                </div>
-                                <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                                    <span>Scale Target: &gt; 0.50</span>
-                                    <span className={responseVelocity >= 0.5 ? "text-emerald-400" : "text-amber-400"}>
-                                        {responseVelocity >= 0.5 ? "Optimal" : "Sub-Optimal"}
-                                    </span>
-                                </div>
-                            </div>
-
-                            {/* Equation Proof / Live Operations Spec */}
-                            <div className="glass-card p-6 rounded-2xl shadow-lg border border-slate-800/80 flex flex-col justify-between relative overflow-hidden group">
-                                <div className="absolute top-0 right-0 p-3 text-[10px] font-black text-indigo-500/40 uppercase tracking-widest">Operations Math</div>
-                                <div>
-                                    <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Safety Coefficient Spec</h4>
-                                    <div className="mt-4 bg-slate-950/60 p-3 rounded-lg border border-slate-800 font-mono text-[10px] text-indigo-300 space-y-1.5 leading-relaxed">
-                                        <div className="text-slate-400">// Calculated Coefficient Formula:</div>
-                                        <div>S_i = max(0, 100 - (15*C + 10*H + 5*M) / (1 + R))</div>
-                                        <div className="pt-1.5 border-t border-slate-800/80 text-slate-400">// Current Sector Values:</div>
-                                        <div>C (Critical): {criticalVal} | H (High): {highVal}</div>
-                                        <div>M (Medium): {mediumVal} | R (Resolved): {resolvedVal}</div>
-                                    </div>
-                                </div>
-                                <span className="text-[10px] text-slate-500 font-semibold leading-relaxed mt-2">
-                                    * Weighting penalizes active critical emergencies severely while resolved cases offset sector threat level.
-                                </span>
+                    {/* Equation Proof / Live Operations Spec */}
+                    <div className="glass-card p-6 rounded-2xl shadow-lg border border-slate-800/80 flex flex-col justify-between relative overflow-hidden group staggered-card" style={{ animationDelay: '200ms' }}>
+                        <div className="absolute top-0 right-0 p-3 text-[10px] font-black text-indigo-500/40 uppercase tracking-widest">Operations Math</div>
+                        <div>
+                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Safety Coefficient Spec</h4>
+                            <div className="mt-4 bg-slate-950/60 p-3 rounded-lg border border-slate-800 font-mono text-[10px] text-indigo-300 space-y-1.5 leading-relaxed">
+                                <div className="text-slate-400">// Calculated Coefficient Formula:</div>
+                                <div>S_i = max(0, 100 - (15*C + 10*H + 5*M) / (1 + R))</div>
+                                <div className="pt-1.5 border-t border-slate-800/80 text-slate-400">// Current Sector Values:</div>
+                                <div>C (Critical): {criticalVal} | H (High): {highVal}</div>
+                                <div>M (Medium): {mediumVal} | R (Resolved): {resolvedVal}</div>
                             </div>
                         </div>
-                    );
-                })()}
+                        <span className="text-[10px] text-slate-500 font-semibold leading-relaxed mt-2">
+                            * Weighting penalizes active critical emergencies severely while resolved cases offset sector threat level.
+                        </span>
+                    </div>
+                </div>
 
                 {/* Analytics Charts Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">

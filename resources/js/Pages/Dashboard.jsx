@@ -65,7 +65,7 @@ export default function Dashboard({
     const typeChart = useRef(null);
     const statusChart = useRef(null);
 
-    // Mouse movement spotlight tracking
+    // Mouse movement spotlight tracking and 3D tilt effect
     const handleMouseMove = (e) => {
         const card = e.currentTarget;
         const rect = card.getBoundingClientRect();
@@ -73,6 +73,20 @@ export default function Dashboard({
         const y = e.clientY - rect.top;
         card.style.setProperty('--mouse-x', `${x}px`);
         card.style.setProperty('--mouse-y', `${y}px`);
+
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const rotateX = ((y - centerY) / centerY) * -3; // Max 3 degrees tilt
+        const rotateY = ((x - centerX) / centerX) * 3;
+
+        card.style.transition = 'transform 0.08s cubic-bezier(0.25, 1, 0.5, 1), box-shadow 0.3s ease';
+        card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.015, 1.015, 1.015)`;
+    };
+
+    const handleMouseLeave = (e) => {
+        const card = e.currentTarget;
+        card.style.transition = 'transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease';
+        card.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
     };
 
     // ─── Sandbox Actions (instant fetch, no page reload) ──────────────────────
@@ -426,11 +440,48 @@ export default function Dashboard({
                     opacity: 1;
                     transform: translateY(0);
                 }
+                @keyframes banner-glow {
+                    0% { background-position: 0% 50%; }
+                    50% { background-position: 100% 50%; }
+                    100% { background-position: 0% 50%; }
+                }
+                .banner-glow-flow {
+                    background: linear-gradient(135deg, rgba(8, 12, 24, 0.45) 0%, rgba(20, 26, 46, 0.55) 50%, rgba(8, 12, 24, 0.45) 100%) !important;
+                    background-size: 200% 200% !important;
+                    animation: banner-glow 15s ease infinite !important;
+                }
+                /* Sonar Pulse Indicator Dot */
+                .pulse-indicator-dot {
+                    width: 6px;
+                    height: 6px;
+                    background-color: #10b981;
+                    border-radius: 9999px;
+                    display: inline-block;
+                    position: relative;
+                }
+                .pulse-indicator-dot::before,
+                .pulse-indicator-dot::after {
+                    content: '';
+                    position: absolute;
+                    inset: -4px;
+                    border-radius: 9999px;
+                    border: 1.5px solid #10b981;
+                    animation: sonar-pulse 2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+                    pointer-events: none;
+                    opacity: 0;
+                }
+                .pulse-indicator-dot::before {
+                    animation-delay: 1s;
+                }
+                @keyframes sonar-pulse {
+                    0% { transform: scale(0.7); opacity: 0.8; }
+                    100% { transform: scale(2.2); opacity: 0; }
+                }
                 `}
             </style>
 
             {/* Custom Welcome & Status Banner */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 premium-card text-white p-6 rounded-2xl shadow-xl relative overflow-hidden mb-6 border border-slate-800/60 reveal-on-scroll">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 premium-card text-white p-6 rounded-2xl shadow-xl relative overflow-hidden mb-6 border border-slate-800/60 reveal-on-scroll banner-glow-flow">
                 <div className="absolute -right-20 -top-20 w-80 h-80 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none"></div>
                 <div className="relative z-10">
                     <span className="text-[10px] font-black uppercase tracking-[0.25em] text-indigo-400">
@@ -556,6 +607,7 @@ export default function Dashboard({
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 reveal-on-scroll">
                     <div 
                         onMouseMove={handleMouseMove}
+                        onMouseLeave={handleMouseLeave}
                         className="premium-card spotlight-card p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between"
                     >
                         <div className="flex items-start justify-between">
@@ -584,6 +636,7 @@ export default function Dashboard({
 
                     <div 
                         onMouseMove={handleMouseMove}
+                        onMouseLeave={handleMouseLeave}
                         className="premium-card spotlight-card p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between"
                     >
                         <div className="flex items-start justify-between">
@@ -612,6 +665,7 @@ export default function Dashboard({
 
                     <div 
                         onMouseMove={handleMouseMove}
+                        onMouseLeave={handleMouseLeave}
                         className="premium-card spotlight-card p-6 shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between"
                     >
                         <div className="flex items-start justify-between">
@@ -640,6 +694,7 @@ export default function Dashboard({
                 {/* Safety Intelligence & Predictive Insights */}
                 <div 
                     onMouseMove={handleMouseMove}
+                    onMouseLeave={handleMouseLeave}
                     className="premium-card spotlight-card p-6 shadow-xl relative overflow-hidden border border-slate-800/60 reveal-on-scroll animate-fade-in"
                 >
                     <div className="absolute top-0 right-0 w-80 h-full bg-gradient-to-l from-indigo-500/5 to-transparent pointer-events-none"></div>
@@ -687,6 +742,7 @@ export default function Dashboard({
                     {/* Weekly Trends Chart */}
                     <div 
                         onMouseMove={handleMouseMove}
+                        onMouseLeave={handleMouseLeave}
                         className="glass-panel spotlight-card p-5 shadow-sm border border-slate-800/80"
                     >
                         <h3 className="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
@@ -701,6 +757,7 @@ export default function Dashboard({
                     {/* Hourly Distribution Chart */}
                     <div 
                         onMouseMove={handleMouseMove}
+                        onMouseLeave={handleMouseLeave}
                         className="glass-panel spotlight-card p-5 shadow-sm border border-slate-800/80"
                     >
                         <h3 className="text-sm font-bold text-slate-200 mb-4 flex items-center gap-2">
@@ -718,6 +775,7 @@ export default function Dashboard({
                     {/* Recent Reports Preview — 2/3 width */}
                     <div 
                         onMouseMove={handleMouseMove}
+                        onMouseLeave={handleMouseLeave}
                         className="lg:col-span-2 premium-card spotlight-card overflow-hidden flex flex-col"
                     >
                         {/* Panel Header */}
@@ -824,6 +882,7 @@ export default function Dashboard({
                     {/* Live Ticker Feed — 1/3 width */}
                     <div 
                         onMouseMove={handleMouseMove}
+                        onMouseLeave={handleMouseLeave}
                         className="premium-card spotlight-card overflow-hidden flex flex-col"
                     >
                         {/* Panel Header */}

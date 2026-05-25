@@ -13,8 +13,21 @@ export default function Dashboard({
     const { env } = usePage().props;
     const [selectedBoundary, setSelectedBoundary] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
+    const [is3D, setIs3D] = useState(true);
     const mapContainer = useRef(null);
     const mapRef = useRef(null);
+
+    const toggle3D = () => {
+        if (!mapRef.current) return;
+        const map = mapRef.current;
+        if (is3D) {
+            map.easeTo({ pitch: 0, bearing: 0, duration: 1000 });
+            setIs3D(false);
+        } else {
+            map.easeTo({ pitch: 55, bearing: -15, duration: 1000 });
+            setIs3D(true);
+        }
+    };
 
     const handleAction = (e, routeName, adminId) => {
         e.preventDefault();
@@ -88,14 +101,54 @@ export default function Dashboard({
                 container: mapContainer.current,
                 style: `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${maptilerKey}`,
                 center: [lng, lat],
-                zoom: 12
+                zoom: 12,
+                pitch: 55,
+                bearing: -15
             });
 
             mapRef.current = map;
             map.addControl(new window.maplibregl.NavigationControl());
 
+            const setupLayers = () => {
+                const style = map.getStyle();
+                if (!style || !style.layers) return;
+                
+                let labelLayerId;
+                for (let i = 0; i < style.layers.length; i++) {
+                    if (style.layers[i].type === 'symbol' && style.layers[i].layout && style.layers[i].layout['text-field']) {
+                        labelLayerId = style.layers[i].id;
+                        break;
+                    }
+                }
+
+                const currentStyle = style.name || '';
+                const sourceName = map.getSource('openmaptiles') ? 'openmaptiles' : (map.getSource('maptiler') ? 'maptiler' : null);
+                if (!map.getLayer('3d-buildings') && !currentStyle.toLowerCase().includes('hybrid') && sourceName) {
+                    try {
+                        map.addLayer({
+                            'id': '3d-buildings',
+                            'source': sourceName,
+                            'source-layer': 'building',
+                            'type': 'fill-extrusion',
+                            'minzoom': 13,
+                            'paint': {
+                                'fill-extrusion-color': '#4f46e5',
+                                'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.5, ['get', 'render_height']],
+                                'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.5, ['get', 'render_min_height']],
+                                'fill-extrusion-opacity': 0.65
+                            }
+                        }, labelLayerId);
+                    } catch (e) {
+                        console.warn("Could not load 3D buildings:", e);
+                    }
+                }
+            };
+
+            map.on('style.load', setupLayers);
+
             map.on('load', () => {
                 map.resize();
+                setupLayers();
                 
                 map.addSource('boundary-source', {
                     type: 'geojson',
@@ -150,6 +203,36 @@ export default function Dashboard({
                     backdrop-filter: blur(16px);
                     border: 1px solid rgba(30, 41, 59, 0.8);
                 }
+                @keyframes fade-up-slide {
+                    0% { opacity: 0; transform: translateY(12px); }
+                    100% { opacity: 1; transform: translateY(0); }
+                }
+                .staggered-card {
+                    opacity: 0;
+                    animation: fade-up-slide 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                }
+                @keyframes sos-glow {
+                    0% { box-shadow: 0 0 12px rgba(244, 63, 94, 0.15), border-color: rgba(244, 63, 94, 0.3); }
+                    50% { box-shadow: 0 0 22px rgba(244, 63, 94, 0.4), border-color: rgba(244, 63, 94, 0.6); }
+                    100% { box-shadow: 0 0 12px rgba(244, 63, 94, 0.15), border-color: rgba(244, 63, 94, 0.3); }
+                }
+                .sos-pulse-button {
+                    animation: sos-glow 2.5s infinite ease-in-out;
+                }
+                @keyframes modal-scale-in {
+                    0% { transform: scale(0.93); opacity: 0; }
+                    100% { transform: scale(1); opacity: 1; }
+                }
+                @keyframes backdrop-fade-in {
+                    0% { backdrop-filter: blur(0px); background-color: rgba(9, 13, 22, 0); }
+                    100% { backdrop-filter: blur(12px); background-color: rgba(9, 13, 22, 0.85); }
+                }
+                .modal-animate-container {
+                    animation: backdrop-fade-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                }
+                .modal-animate-card {
+                    animation: modal-scale-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+                }
                 `}
             </style>
 
@@ -169,7 +252,7 @@ export default function Dashboard({
                             <button 
                                 type="submit" 
                                 disabled={processing}
-                                className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-rose-450 bg-rose-955/35 hover:bg-rose-955/55 rounded-xl border border-rose-900/50 transition duration-150 shadow-[0_0_15px_rgba(244,63,94,0.15)] cursor-pointer"
+                                className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-black uppercase tracking-widest text-rose-450 bg-rose-955/35 hover:bg-rose-955/55 rounded-xl border border-rose-900/50 transition duration-150 shadow-[0_0_15px_rgba(244,63,94,0.15)] cursor-pointer sos-pulse-button"
                             >
                                 🚨 Reset Active SOS Signals
                             </button>
@@ -184,7 +267,7 @@ export default function Dashboard({
                 {/* Statistics Overview Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
                     {/* Stat Card 1: Total Admins */}
-                    <div className="glass-card p-6 rounded-2xl shadow-sm flex items-center gap-5">
+                    <div className="glass-card p-6 rounded-2xl shadow-sm flex items-center gap-5 staggered-card" style={{ animationDelay: '0ms' }}>
                         <div className="w-12 h-12 bg-slate-950 text-indigo-400 border border-slate-800 rounded-xl flex items-center justify-center shadow-md">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -197,7 +280,7 @@ export default function Dashboard({
                     </div>
 
                     {/* Stat Card 2: Approved Admins */}
-                    <div className="glass-card p-6 rounded-2xl shadow-sm flex items-center gap-5">
+                    <div className="glass-card p-6 rounded-2xl shadow-sm flex items-center gap-5 staggered-card" style={{ animationDelay: '75ms' }}>
                         <div className="w-12 h-12 bg-emerald-950/60 text-emerald-450 border border-emerald-900/50 rounded-xl flex items-center justify-center shadow-md">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -210,7 +293,7 @@ export default function Dashboard({
                     </div>
 
                     {/* Stat Card 3: Pending Requests */}
-                    <div className="glass-card p-6 rounded-2xl shadow-sm flex items-center gap-5">
+                    <div className="glass-card p-6 rounded-2xl shadow-sm flex items-center gap-5 staggered-card" style={{ animationDelay: '150ms' }}>
                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-md border transition-all ${pendingRequests > 0 ? 'bg-amber-955/60 text-amber-450 border-amber-900/50 animate-pulse' : 'bg-slate-950 text-slate-650 border-slate-900'}`}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -223,7 +306,7 @@ export default function Dashboard({
                     </div>
 
                     {/* Stat Card 4: Rejected Admins */}
-                    <div className="glass-card p-6 rounded-2xl shadow-sm flex items-center gap-5">
+                    <div className="glass-card p-6 rounded-2xl shadow-sm flex items-center gap-5 staggered-card" style={{ animationDelay: '225ms' }}>
                         <div className="w-12 h-12 bg-rose-955/60 text-rose-450 border border-rose-900/50 rounded-xl flex items-center justify-center shadow-md">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
@@ -402,8 +485,8 @@ export default function Dashboard({
 
             {/* Map Boundary Viewer Modal */}
             {modalOpen && selectedBoundary && (
-                <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-300">
-                    <div className="glass-card rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-animate-container">
+                    <div className="glass-card rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl modal-animate-card">
                         {/* Header */}
                         <div className="px-6 py-4 bg-slate-900/60 border-b border-slate-800/80 flex items-center justify-between">
                             <div>
@@ -419,6 +502,13 @@ export default function Dashboard({
                         {/* Map Canvas */}
                         <div className="relative">
                             <div ref={mapContainer} className="w-full h-96"></div>
+                            <button
+                                type="button"
+                                onClick={toggle3D}
+                                className="absolute bottom-4 right-4 z-20 px-3 py-1.5 bg-slate-950/80 hover:bg-slate-900 border border-slate-800 text-white text-xs font-bold rounded-lg shadow-lg flex items-center gap-1 transition"
+                            >
+                                {is3D ? '🗺️ 2D' : '🏙️ 3D View'}
+                            </button>
                         </div>
                         {/* Footer */}
                         <div className="px-6 py-4 bg-slate-900/60 border-t border-slate-800/80 flex justify-end">

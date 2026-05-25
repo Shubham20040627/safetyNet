@@ -10,6 +10,19 @@ export default function Index({ reports, neighborhoodLat, neighborhoodLng, neigh
     const [search, setSearch] = useState(new URLSearchParams(window.location.search).get('search') || '');
     const [type, setType] = useState(new URLSearchParams(window.location.search).get('type') || '');
     const [isLocating, setIsLocating] = useState(false);
+    const [is3D, setIs3D] = useState(true);
+    
+    const toggle3D = () => {
+        if (!mapRef.current) return;
+        const map = mapRef.current;
+        if (is3D) {
+            map.easeTo({ pitch: 0, bearing: 0, duration: 1000 });
+            setIs3D(false);
+        } else {
+            map.easeTo({ pitch: 55, bearing: -15, duration: 1000 });
+            setIs3D(true);
+        }
+    };
     
     const hasSearch = new URLSearchParams(window.location.search).has('search');
     const hasType = new URLSearchParams(window.location.search).has('type');
@@ -86,8 +99,8 @@ export default function Index({ reports, neighborhoodLat, neighborhoodLng, neigh
             style: `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${maptilerKey}`,
             center: [neighborhoodLng, neighborhoodLat],
             zoom: 14,
-            pitch: 45,
-            bearing: -17.6
+            pitch: 55,
+            bearing: -15
         });
 
         mapRef.current = map;
@@ -108,26 +121,27 @@ export default function Index({ reports, neighborhoodLat, neighborhoodLng, neigh
             
             let labelLayerId;
             for (let i = 0; i < style.layers.length; i++) {
-                if (style.layers[i].type === 'symbol' && style.layers[i].layout['text-field']) {
+                if (style.layers[i].type === 'symbol' && style.layers[i].layout && style.layers[i].layout['text-field']) {
                     labelLayerId = style.layers[i].id;
                     break;
                 }
             }
 
             const currentStyle = style.name || '';
-            if (!map.getLayer('3d-buildings') && !currentStyle.toLowerCase().includes('hybrid') && map.getSource('openmaptiles')) {
+            const sourceName = map.getSource('openmaptiles') ? 'openmaptiles' : (map.getSource('maptiler') ? 'maptiler' : null);
+            if (!map.getLayer('3d-buildings') && !currentStyle.toLowerCase().includes('hybrid') && sourceName) {
                 try {
                     map.addLayer({
                         'id': '3d-buildings',
-                        'source': 'openmaptiles',
+                        'source': sourceName,
                         'source-layer': 'building',
                         'type': 'fill-extrusion',
-                        'minzoom': 14,
+                        'minzoom': 13,
                         'paint': {
-                            'fill-extrusion-color': '#1e293b',
-                            'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.5, ['get', 'render_height']],
-                            'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.5, ['get', 'render_min_height']],
-                            'fill-extrusion-opacity': 0.8
+                            'fill-extrusion-color': '#4f46e5',
+                            'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.5, ['get', 'render_height']],
+                            'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 13, 0, 13.5, ['get', 'render_min_height']],
+                            'fill-extrusion-opacity': 0.65
                         }
                     }, labelLayerId);
                 } catch (e) {
@@ -340,7 +354,16 @@ export default function Index({ reports, neighborhoodLat, neighborhoodLng, neigh
                             </button>
                         </div>
                     </div>
-                    <div id="global-map" ref={mapContainer} className="w-full border border-slate-800"></div>
+                    <div className="relative">
+                        <div id="global-map" ref={mapContainer} className="w-full border border-slate-800"></div>
+                        <button
+                            type="button"
+                            onClick={toggle3D}
+                            className="absolute bottom-4 right-4 z-20 px-3 py-1.5 bg-slate-950/80 hover:bg-slate-900 border border-slate-800 text-white text-xs font-bold rounded-lg shadow-lg flex items-center gap-1 transition"
+                        >
+                            {is3D ? '🗺️ 2D' : '🏙️ 3D View'}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Reports Grid */}

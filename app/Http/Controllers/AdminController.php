@@ -48,12 +48,26 @@ class AdminController extends Controller
     public function resolveReport(Report $report)
     {
         $report->update(['status' => 'resolved']);
+
+        $neighborhoodName = auth()->user()->neighborhood_name;
+        cache()->forget("dashboard_stats_{$neighborhoodName}");
+        cache()->forget("analytics_stats_{$neighborhoodName}");
+        cache()->forget("heatmap_reports_{$neighborhoodName}");
+        cache()->forget("global_chat_context");
+
         return back()->with('success', 'Report marked as resolved.');
     }
 
     public function deleteReport(Report $report)
     {
         $report->delete();
+
+        $neighborhoodName = auth()->user()->neighborhood_name;
+        cache()->forget("dashboard_stats_{$neighborhoodName}");
+        cache()->forget("analytics_stats_{$neighborhoodName}");
+        cache()->forget("heatmap_reports_{$neighborhoodName}");
+        cache()->forget("global_chat_context");
+
         return back()->with('success', 'Report deleted successfully.');
     }
 
@@ -80,123 +94,140 @@ class AdminController extends Controller
             'status' => 'investigating'
         ]);
 
+        $neighborhoodName = auth()->user()->neighborhood_name;
+        cache()->forget("dashboard_stats_{$neighborhoodName}");
+        cache()->forget("analytics_stats_{$neighborhoodName}");
+        cache()->forget("heatmap_reports_{$neighborhoodName}");
+        cache()->forget("global_chat_context");
+
         return back()->with('success', 'Responder assigned and report is now being investigated.');
     }
 
     public function analytics()
     {
         $neighborhoodName = auth()->user()->neighborhood_name;
+        $cacheKey = "analytics_stats_{$neighborhoodName}";
 
-        $baseQuery = Report::whereHas('user', function($query) use ($neighborhoodName) {
-            $query->where('neighborhood_name', $neighborhoodName);
+        $stats = cache()->remember($cacheKey, 300, function() use ($neighborhoodName) {
+            $baseQuery = Report::whereHas('user', function($query) use ($neighborhoodName) {
+                $query->where('neighborhood_name', $neighborhoodName);
+            });
+
+            // 1. Core Metrics
+            $totalIncidents = (clone $baseQuery)->count();
+            $unresolvedIncidents = (clone $baseQuery)->where('status', '!=', 'resolved')->count();
+            $resolvedIncidents = (clone $baseQuery)->where('status', 'resolved')->count();
+            
+            // Calculate average resolution time (in hours) using database-level aggregation
+            $driverName = \Illuminate\Support\Facades\DB::connection()->getDriverName();
+            if ($driverName === 'sqlite') {
+                $avgHoursQuery = "AVG((strftime('%s', updated_at) - strftime('%s', created_at)) / 3600)";
+            } elseif ($driverName === 'pgsql') {
+                $avgHoursQuery = "AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 3600)";
+            } else {
+                $avgHoursQuery = "AVG(TIMESTAMPDIFF(HOUR, created_at, updated_at))";
+            }
+            
+            $avgResolutionTime = (clone $baseQuery)->where('status', 'resolved')
+                ->whereNotNull('created_at')
+                ->whereNotNull('updated_at')
+                ->selectRaw("{$avgHoursQuery} as avg_hours")
+                ->value('avg_hours') ?? 0;
+            $avgResolutionTime = round($avgResolutionTime, 1);
+
+            // 2. Incident Category Distribution
+            $typeData = (clone $baseQuery)->selectRaw('type, COUNT(*) as count')
+                ->groupBy('type')
+                ->pluck('count', 'type')
+                ->toArray();
+
+            // Ensure all types exist in types list
+            $typesList = ['crime', 'accident', 'suspicious', 'other'];
+            foreach ($typesList as $t) {
+                if (!isset($typeData[$t])) {
+                    $typeData[$t] = 0;
+                }
+            }
+
+            // 3. Priority Distribution
+            $priorityData = (clone $baseQuery)->selectRaw('priority, COUNT(*) as count')
+                ->groupBy('priority')
+                ->pluck('count', 'priority')
+                ->toArray();
+            $priorityList = ['low', 'medium', 'high', 'critical'];
+            foreach ($priorityList as $p) {
+                if (!isset($priorityData[$p])) {
+                    $priorityData[$p] = 0;
+                }
+            }
+
+            // 4. Hourly Peak Distribution
+            $hourField = $driverName === 'pgsql' ? 'EXTRACT(HOUR FROM datetime)' : 'HOUR(datetime)';
+
+            $hourlyData = (clone $baseQuery)->selectRaw("{$hourField} as hour, COUNT(*) as count")
+                ->groupBy('hour')
+                ->orderBy('hour')
+                ->pluck('count', 'hour')
+                ->toArray();
+            $fullHourlyData = array_fill(0, 24, 0);
+            foreach ($hourlyData as $hour => $c) {
+                $fullHourlyData[$hour] = $c;
+            }
+
+            // 5. Weekly Safety Trend & AI Forecast
+            $weeklyData = (clone $baseQuery)->selectRaw('DATE(created_at) as date, COUNT(*) as count')
+                ->where('created_at', '>=', now()->subDays(7))
+                ->groupBy('date')
+                ->orderBy('date')
+                ->pluck('count', 'date')
+                ->toArray();
+
+            // Simple linear progression trend forecast for next 3 days
+            $forecastData = [];
+            $dates = array_keys($weeklyData);
+            $counts = array_values($weeklyData);
+            $n = count($counts);
+            
+            if ($n > 1) {
+                // Calculate simple slope (m)
+                $sumX = 0; $sumY = 0; $sumXY = 0; $sumXX = 0;
+                for ($i = 0; $i < $n; $i++) {
+                    $sumX += $i;
+                    $sumY += $counts[$i];
+                    $sumXY += $i * $counts[$i];
+                    $sumXX += $i * $i;
+                }
+                $slope = ($n * $sumXY - $sumX * $sumY) / ($n * $sumXX - $sumX * $sumX);
+                $intercept = ($sumY - $slope * $sumX) / $n;
+                
+                // Forecast 3 days ahead
+                for ($i = $n; $i < $n + 3; $i++) {
+                    $forecastVal = max(0, round($slope * $i + $intercept, 1));
+                    $forecastData[] = $forecastVal;
+                }
+            } else {
+                $forecastData = [0, 0, 0];
+            }
+
+            return compact(
+                'totalIncidents', 'unresolvedIncidents', 'resolvedIncidents', 'avgResolutionTime',
+                'typeData', 'priorityData', 'fullHourlyData', 'weeklyData', 'forecastData'
+            );
         });
 
-        // 1. Core Metrics
-        $totalIncidents = (clone $baseQuery)->count();
-        $unresolvedIncidents = (clone $baseQuery)->where('status', '!=', 'resolved')->count();
-        $resolvedIncidents = (clone $baseQuery)->where('status', 'resolved')->count();
-        
-        // Calculate average resolution time (in hours)
-        $resolvedReports = (clone $baseQuery)->where('status', 'resolved')
-            ->whereNotNull('created_at')
-            ->whereNotNull('updated_at')
-            ->get();
-            
-        $totalHours = 0;
-        $count = $resolvedReports->count();
-        foreach ($resolvedReports as $report) {
-            $created = \Carbon\Carbon::parse($report->created_at);
-            $updated = \Carbon\Carbon::parse($report->updated_at);
-            $totalHours += $created->diffInHours($updated);
-        }
-        $avgResolutionTime = $count > 0 ? round($totalHours / $count, 1) : 0;
-
-        // 2. Incident Category Distribution
-        $typeData = (clone $baseQuery)->selectRaw('type, COUNT(*) as count')
-            ->groupBy('type')
-            ->pluck('count', 'type')
-            ->toArray();
-
-        // Ensure all types exist in types list
-        $typesList = ['crime', 'accident', 'suspicious', 'other'];
-        foreach ($typesList as $t) {
-            if (!isset($typeData[$t])) {
-                $typeData[$t] = 0;
-            }
-        }
-
-        // 3. Priority Distribution
-        $priorityData = (clone $baseQuery)->selectRaw('priority, COUNT(*) as count')
-            ->groupBy('priority')
-            ->pluck('count', 'priority')
-            ->toArray();
-        $priorityList = ['low', 'medium', 'high', 'critical'];
-        foreach ($priorityList as $p) {
-            if (!isset($priorityData[$p])) {
-                $priorityData[$p] = 0;
-            }
-        }
-
-        // 4. Hourly Peak Distribution
-        $driverName = \Illuminate\Support\Facades\DB::connection()->getDriverName();
-        $hourField = $driverName === 'pgsql' ? 'EXTRACT(HOUR FROM datetime)' : 'HOUR(datetime)';
-
-        $hourlyData = (clone $baseQuery)->selectRaw("{$hourField} as hour, COUNT(*) as count")
-            ->groupBy('hour')
-            ->orderBy('hour')
-            ->pluck('count', 'hour')
-            ->toArray();
-        $fullHourlyData = array_fill(0, 24, 0);
-        foreach ($hourlyData as $hour => $c) {
-            $fullHourlyData[$hour] = $c;
-        }
-
-        // 5. Weekly Safety Trend & AI Forecast
-        $weeklyData = (clone $baseQuery)->selectRaw('DATE(created_at) as date, COUNT(*) as count')
-            ->where('created_at', '>=', now()->subDays(7))
-            ->groupBy('date')
-            ->orderBy('date')
-            ->pluck('count', 'date')
-            ->toArray();
-
-        // Simple linear progression trend forecast for next 3 days
-        $forecastData = [];
-        $dates = array_keys($weeklyData);
-        $counts = array_values($weeklyData);
-        $n = count($counts);
-        
-        if ($n > 1) {
-            // Calculate simple slope (m)
-            $sumX = 0; $sumY = 0; $sumXY = 0; $sumXX = 0;
-            for ($i = 0; $i < $n; $i++) {
-                $sumX += $i;
-                $sumY += $counts[$i];
-                $sumXY += $i * $counts[$i];
-                $sumXX += $i * $i;
-            }
-            $slope = ($n * $sumXY - $sumX * $sumY) / ($n * $sumXX - $sumX * $sumX);
-            $intercept = ($sumY - $slope * $sumX) / $n;
-            
-            // Forecast 3 days ahead
-            for ($i = $n; $i < $n + 3; $i++) {
-                $forecastVal = max(0, round($slope * $i + $intercept, 1));
-                $forecastData[] = $forecastVal;
-            }
-        } else {
-            $forecastData = [0, 0, 0];
-        }
-
-        return \Inertia\Inertia::render('Admin/Analytics', compact(
-            'totalIncidents', 'unresolvedIncidents', 'resolvedIncidents', 'avgResolutionTime',
-            'typeData', 'priorityData', 'fullHourlyData', 'weeklyData', 'forecastData'
-        ));
+        return \Inertia\Inertia::render('Admin/Analytics', $stats);
     }
 
     public function seedDemoData(Request $request)
     {
         if (auth()->user()->role === 'admin') {
             \App\Helpers\SampleDataSeeder::seedIfNeeded(auth()->user(), true);
-            cache()->forget("dashboard_stats_" . auth()->user()->neighborhood_name);
+            $neighborhoodName = auth()->user()->neighborhood_name;
+            cache()->forget("dashboard_stats_{$neighborhoodName}");
+            cache()->forget("analytics_stats_{$neighborhoodName}");
+            cache()->forget("heatmap_reports_{$neighborhoodName}");
+            cache()->forget("neighborhood_meta_{$neighborhoodName}");
+            cache()->forget("global_chat_context");
         }
 
         if ($request->wantsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
@@ -215,7 +246,10 @@ class AdminController extends Controller
             $userIds = \App\Models\User::where('neighborhood_name', $neighborhoodName)->pluck('id');
             \App\Models\Report::whereIn('user_id', $userIds)->delete();
             
-            cache()->forget("dashboard_stats_" . $neighborhoodName);
+            cache()->forget("dashboard_stats_{$neighborhoodName}");
+            cache()->forget("analytics_stats_{$neighborhoodName}");
+            cache()->forget("heatmap_reports_{$neighborhoodName}");
+            cache()->forget("global_chat_context");
         }
 
         if ($request->wantsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
@@ -237,94 +271,94 @@ class AdminController extends Controller
         // Choose a random template
         $templates = [
             [
-                'title'       => 'Suspicious Individual Near ATM',
-                'description' => 'A hooded individual has been loitering around the ATM machine for over 30 minutes, watching people withdraw cash.',
+                'title'       => 'DEMO-ABC: Suspicious Individual Near ATM',
+                'description' => '[DEMO DATA] A hooded individual has been loitering around the ATM machine for over 30 minutes, watching people withdraw cash.',
                 'type'        => 'suspicious',
                 'priority'    => 'high',
                 'location'    => 'Community Bank ATM, Sector Market',
-                'ai_summary'  => 'Suspicious loitering detected near ATM machine, potential robbery casing activity.',
-                'ai_advice'   => 'Avoid using this ATM alone. Use cashless payments where possible. Patrol unit notified.',
+                'ai_summary'  => '[DEMO SUMMARY] Suspicious loitering detected near ATM machine.',
+                'ai_advice'   => '[DEMO ADVICE] Avoid using this ATM alone. Patrol unit notified.',
             ],
             [
-                'title'       => 'Garbage Fire Near Residential Block',
-                'description' => 'A pile of municipal garbage caught fire near Block D. Thick smoke is spreading toward nearby apartments.',
+                'title'       => 'DEMO-XYZ: Garbage Fire Near Residential Block',
+                'description' => '[DEMO DATA] A pile of municipal garbage caught fire near Block D. Thick smoke is spreading toward nearby apartments.',
                 'type'        => 'accident',
                 'priority'    => 'high',
                 'location'    => 'Block D Back Lane, Near Bin Station',
-                'ai_summary'  => 'Garbage fire producing heavy smoke near residential buildings, potential inhalation hazard.',
-                'ai_advice'   => 'Keep windows closed. Evacuate lower floors if smoke enters. Fire brigade has been alerted.',
+                'ai_summary'  => '[DEMO SUMMARY] Garbage fire producing heavy smoke near residential buildings.',
+                'ai_advice'   => '[DEMO ADVICE] Keep windows closed. Fire brigade has been alerted.',
             ],
             [
-                'title'       => 'Stray Cattle Blocking Traffic',
-                'description' => 'A herd of 8-10 stray cattle is standing on the main road, blocking vehicles in both directions.',
+                'title'       => 'DEMO-ABC: Stray Cattle Blocking Traffic',
+                'description' => '[DEMO DATA] A herd of 8-10 stray cattle is standing on the main road, blocking vehicles in both directions.',
                 'type'        => 'other',
                 'priority'    => 'medium',
                 'location'    => 'Main Road Junction, Near Bus Depot',
-                'ai_summary'  => 'Stray cattle causing significant traffic disruption on main road.',
-                'ai_advice'   => 'Avoid the main road. Take alternate routes. Do not honk aggressively near animals.',
+                'ai_summary'  => '[DEMO SUMMARY] Stray cattle causing significant traffic disruption on main road.',
+                'ai_advice'   => '[DEMO ADVICE] Avoid the main road. Take alternate routes.',
             ],
             [
-                'title'       => 'Chain Snatching Reported',
-                'description' => 'A woman reported that her gold chain was snatched by a person on a motorcycle near the market entrance.',
+                'title'       => 'DEMO-XYZ: Chain Snatching Reported',
+                'description' => '[DEMO DATA] A woman reported that her gold chain was snatched by a person on a motorcycle near the market entrance.',
                 'type'        => 'crime',
                 'priority'    => 'critical',
                 'location'    => 'Market Gate, Western Entrance',
-                'ai_summary'  => 'Chain snatching incident by motorcycle-borne suspect at market entrance.',
-                'ai_advice'   => 'Avoid wearing visible jewellery in crowded areas. Police alerted with vehicle description.',
+                'ai_summary'  => '[DEMO SUMMARY] Chain snatching incident by motorcycle-borne suspect.',
+                'ai_advice'   => '[DEMO ADVICE] Avoid wearing visible jewellery in crowded areas.',
             ],
             [
-                'title'       => 'Water Logging After Heavy Rain',
-                'description' => 'The underpass near the school has flooded knee-deep after the rain. Children are having difficulty commuting.',
+                'title'       => 'DEMO-ABC: Water Logging After Heavy Rain',
+                'description' => '[DEMO DATA] The underpass near the school has flooded knee-deep after the rain. Children are having difficulty commuting.',
                 'type'        => 'accident',
                 'priority'    => 'medium',
                 'location'    => 'School Underpass, Sector 6',
-                'ai_summary'  => 'Flash flooding at school underpass creating dangerous conditions for commuters.',
-                'ai_advice'   => 'Use alternate dry routes to school. Do not wade through stagnant water. Drainage team notified.',
+                'ai_summary'  => '[DEMO SUMMARY] Flash flooding at school underpass creating dangerous conditions.',
+                'ai_advice'   => '[DEMO ADVICE] Use alternate dry routes to school.',
             ],
             [
-                'title'       => 'Unknown Vehicle Parked Suspiciously',
-                'description' => 'A black SUV with no license plates has been parked in front of a residential building for 3 days with no activity.',
+                'title'       => 'DEMO-XYZ: Unknown Vehicle Parked Suspiciously',
+                'description' => '[DEMO DATA] A black SUV with no license plates has been parked in front of a residential building for 3 days with no activity.',
                 'type'        => 'suspicious',
                 'priority'    => 'medium',
                 'location'    => 'Residency Block B, Parking Zone',
-                'ai_summary'  => 'Unregistered vehicle parked for extended duration, possible abandoned vehicle or surveillance.',
-                'ai_advice'   => 'Do not touch or approach the vehicle. Inform local traffic police for immediate check.',
+                'ai_summary'  => '[DEMO SUMMARY] Unregistered vehicle parked for extended duration.',
+                'ai_advice'   => '[DEMO ADVICE] Inform local traffic police for check.',
             ],
             [
-                'title'       => 'Transformer Box Vandalized',
-                'description' => 'The electrical transformer junction box near the park has been broken open and wires are exposed, creating electrocution risk.',
+                'title'       => 'DEMO-ABC: Transformer Box Vandalized',
+                'description' => '[DEMO DATA] The electrical transformer junction box near the park has been broken open and wires are exposed, creating electrocution risk.',
                 'type'        => 'accident',
                 'priority'    => 'critical',
                 'location'    => 'Central Park, Eastern Corner',
-                'ai_summary'  => 'Vandalized transformer with exposed live wires presenting immediate electrocution risk to public.',
-                'ai_advice'   => 'Keep at least 20 feet away. Do not let children near the area. Electricity board emergency line contacted.',
+                'ai_summary'  => '[DEMO SUMMARY] Vandalized transformer with exposed live wires.',
+                'ai_advice'   => '[DEMO ADVICE] Keep at least 20 feet away. Electricity board emergency line contacted.',
             ],
             [
-                'title'       => 'Loud Argument / Domestic Disturbance',
-                'description' => 'Neighbours report loud shouting and sounds of breaking objects from Apartment 4B. Has been going on for over an hour.',
+                'title'       => 'DEMO-XYZ: Loud Argument / Domestic Disturbance',
+                'description' => '[DEMO DATA] Neighbours report loud shouting and sounds of breaking objects from Apartment 4B. Has been going on for over an hour.',
                 'type'        => 'suspicious',
                 'priority'    => 'high',
                 'location'    => 'Apartment Complex 4B, Tower 2',
-                'ai_summary'  => 'Domestic disturbance with loud altercation and potential physical altercation sounds.',
-                'ai_advice'   => 'Do not intervene directly. Call non-emergency helpline or police if sounds of physical harm are heard.',
+                'ai_summary'  => '[DEMO SUMMARY] Domestic disturbance with loud altercation.',
+                'ai_advice'   => '[DEMO ADVICE] Call non-emergency helpline or police.',
             ],
             [
-                'title'       => 'Dog Bite Incident at Park',
-                'description' => 'A stray dog bit a 10-year-old child who was playing in the community park this afternoon.',
+                'title'       => 'DEMO-ABC: Dog Bite Incident at Park',
+                'description' => '[DEMO DATA] A stray dog bit a 10-year-old child who was playing in the community park this afternoon.',
                 'type'        => 'accident',
                 'priority'    => 'high',
                 'location'    => 'Community Children Park, Sector 3',
-                'ai_summary'  => 'Child bitten by stray dog at public park, requires immediate medical attention and rabies assessment.',
-                'ai_advice'   => 'Seek immediate medical attention. Clean wound with running water. Report to animal control for dog capture.',
+                'ai_summary'  => '[DEMO SUMMARY] Child bitten by stray dog at public park.',
+                'ai_advice'   => '[DEMO ADVICE] Seek immediate medical attention.',
             ],
             [
-                'title'       => 'Smoke Detected in Stairwell',
-                'description' => 'Residents on floors 3-5 of Tower C are reporting a burning smell and light smoke visible in the stairwell area.',
+                'title'       => 'DEMO-XYZ: Smoke Detected in Stairwell',
+                'description' => '[DEMO DATA] Residents on floors 3-5 of Tower C are reporting a burning smell and light smoke visible in the stairwell area.',
                 'type'        => 'accident',
                 'priority'    => 'critical',
                 'location'    => 'Tower C Stairwell, Floor 3-5',
-                'ai_summary'  => 'Unexplained smoke and burning smell in apartment building stairwell, possible electrical or trash fire.',
-                'ai_advice'   => 'Do not use elevators. Evacuate via fire exits. Fire brigade alerted. Assemble at ground floor muster point.',
+                'ai_summary'  => '[DEMO SUMMARY] Unexplained smoke and burning smell in apartment building stairwell.',
+                'ai_advice'   => '[DEMO ADVICE] Do not use elevators. Evacuate via fire exits.',
             ],
         ];
 
@@ -360,9 +394,11 @@ class AdminController extends Controller
             'is_simulated'=> true,
         ]);
 
-        // Clear dashboard and analytics cache
+        // Clear dashboard, analytics, heatmap, and AI chat context cache
         cache()->forget("dashboard_stats_{$neighborhoodName}");
         cache()->forget("analytics_stats_{$neighborhoodName}");
+        cache()->forget("heatmap_reports_{$neighborhoodName}");
+        cache()->forget("global_chat_context");
 
         if ($request->wantsJson() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
             return response()->json(['success' => true, 'message' => 'Demo incident pushed successfully.']);
